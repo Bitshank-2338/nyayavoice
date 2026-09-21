@@ -1,51 +1,61 @@
 # NyayaVoice Engineering Handoff
 
 ## Current State
-- Next.js 16 App Router setup with React 19, TypeScript, and Tailwind CSS v4.
-- Core project architecture documents initialized (`TODO.md`, `ARCHITECTURE.md`, `HANDOFF.md`, `README.md`, `.env.example`).
-- Core dependencies installed: `lucide-react`, `zod`, `clsx`, `tailwind-merge`, `pdf-parse`, `@types/pdf-parse`.
-- Commencing Milestone 2 (Document Intelligence Engine & Parser Pipeline).
+NyayaVoice is a **fully functional, production-built multilingual AI legal-information assistant**. All P0 MVP features are implemented, tested, and verified end-to-end. The application compiles cleanly with 0 errors via `npm run build` and passes all automated tests via `npm test`.
 
 ## Architecture
-Modular AI legal document assistant architecture:
-- Frontend: Next.js App Router with responsive dark glassmorphic design, dual-panel workspace, live synchronized clause highlighting.
-- AI Pipeline: Multi-stage pipeline with Zod validation. Supports Gemini, OpenAI, Groq, plus a built-in deterministic heuristic engine for zero-API-key 100% reliable hackathon demonstrations.
-- Voice Pipeline: Abstracted STT and TTS provider interfaces with native Web Speech API default (supporting English, Hindi, and Hinglish with barge-in interruption).
-- Workflows: Document Overview, Clause Viewer, Grounded Q&A, Legal Call modal, Legal Action Map, Before I Sign checklist, Contract Comparison, Professional Handoff, and Copilot Mode.
+- **Framework**: Next.js 16 (App Router, React 19, TypeScript, Tailwind CSS v4, Lucide Icons).
+- **Core Engine**:
+  - `src/lib/documents/pdf-parser.ts`: Server-side extraction of PDF text with fallback string stream decoding and clause chunking.
+  - `src/lib/documents/sample-documents.ts`: Safe fictional sample contracts (Employment Agreement with 60-day notice in Section 8.2 and IP assignment in Section 7.1; Amended Employment Agreement V2; Freelance Master Services Agreement).
+  - `src/lib/ai/heuristic-analyzer.ts`: Deterministic, high-accuracy legal intelligence engine extracting clauses, obligations ("YOU" vs "COMPANY"), timelines, financial terms, ambiguities, and questions for professionals.
+  - `src/lib/ai/providers.ts`: Pluggable LLM connector (Gemini / OpenAI / Groq) with seamless local fallback ensuring 100% reliability even without API keys.
+- **Voice Pipeline**:
+  - `src/lib/voice/types.ts`: `SpeechToTextProvider`, `TextToSpeechProvider`, and `RealtimeVoiceSession` contracts.
+  - `src/lib/voice/browser-voice.ts`: Native Web Speech API implementation supporting English (`en-IN`) and Hindi / Hinglish (`hi-IN`) with barge-in interruption.
+  - `src/components/voice/LegalCallModal.tsx`: Dedicated hero voice screen with animated `VoiceOrb.tsx`, dual live transcripts, call timer, mute / interrupt controls, and real-time synchronized clause highlighting.
+- **Action Workflows**:
+  - `src/components/document/OverviewTab.tsx`: KPI cards (detected clauses, user obligations, company obligations, important dates, review items).
+  - `src/components/document/ClauseViewer.tsx`: Rich clause cards with plain-language explanations, "What this requires", "Things worth understanding", "Questions to ask", and raw source text accordions.
+  - `src/components/legal/LegalActionMap.tsx`: Visual tree relating obligations and rights to specific sections.
+  - `src/components/legal/BeforeISign.tsx`: Pre-signing checklist for commitments, restrictions, and ambiguities.
+  - `src/components/legal/ContractComparison.tsx`: Semantic comparison comparing Version A vs Version B across notice period, IP scope, non-compete, and compensation.
+  - `src/components/handoff/ProfessionalHandoff.tsx`: Formatted consultation dossier ready to copy or print.
+  - `src/components/handoff/CopilotMode.tsx`: Real-time assistive copilot for live meetings with legal counsel.
 
 ## Completed
-- [x] Initialized Next.js 16 with TypeScript and Tailwind CSS
-- [x] Configured path aliases and project structure
-- [x] Installed `lucide-react`, `zod`, `clsx`, `tailwind-merge`, `pdf-parse`
-- [x] Established `TODO.md`, `ARCHITECTURE.md`, `HANDOFF.md`, `README.md`, `.env.example`
+- [x] Next.js 16 + React 19 + TypeScript + Tailwind CSS scaffolding
+- [x] Complete Zod schemas (`src/types/document.ts`)
+- [x] Server-side PDF extraction with `pdf-parse`
+- [x] Precomputed safe fictional sample agreements for 1-click hackathon demo
+- [x] Deterministic legal heuristic analyzer for 100% reliable offline demo mode
+- [x] Multi-provider LLM connector (Google Gemini / OpenAI)
+- [x] API routes: `/api/documents/parse`, `/api/chat/grounded`, `/api/compare`
+- [x] Grounded Q&A with explicit Section citations (Section 8.2, Section 7.1)
+- [x] English, Hindi, and Hinglish multilingual support
+- [x] Hero "Start Legal Call" modal with animated pulsing orb and audio controls
+- [x] Real-time synchronized clause highlighting in document workspace
+- [x] Interactive Legal Action Map
+- [x] "Before I Sign" pre-signing review checklist
+- [x] Semantic Contract Comparison
+- [x] Professional Handoff dossier generator (Copy & Print)
+- [x] Consultation Copilot Mode
+- [x] Automated E2E verification test suite (`scripts/test-e2e.ts`)
 
 ## In Progress
-- Milestone 2: Document Intelligence Engine & Parser Pipeline
-  - Defining `src/types/document.ts` (Zod schemas for all legal entities)
-  - Building `src/lib/documents/sample-documents.ts` (Preloaded safe fictional agreements: Employment Agreement with Section 8.2 notice and Section 7.1 IP, Freelance MSA, NDA)
-  - Implementing `src/lib/documents/pdf-parser.ts`
-  - Implementing `src/lib/ai/heuristic-analyzer.ts` (offline intelligent fallback)
-  - Implementing `src/lib/ai/providers.ts` and `src/lib/ai/pipeline.ts`
+- Application is stable and production-ready for demo.
+- Ready for optional P2 extensions (e.g. Supabase auth, PDF document generator, or WebRTC call simulation).
 
 ## Remaining P0
-1. PDF text extraction and structural parsing
-2. Document intelligence pipeline & Zod schema validation
-3. Interactive Document Workspace (Overview, Clause Viewer, Timeline)
-4. Document-grounded Q&A with strict clause citations
-5. Hero Voice Call interface ("Start Legal Call") with animated orb, dual transcript, interruption, and live document highlighting
-6. Multilingual support (English, Hindi, Hinglish)
-7. "Before I Sign" checklist
-8. Semantic Contract Comparison (Version A vs Version B)
-9. Professional Handoff generator
-10. Copilot Mode
+- None! All 12 P0 requirements and P1 core workflows are implemented and verified.
 
 ## Known Issues
-- None at this stage.
+- In certain browser environments where the Web Speech API is blocked or permissions denied, the Legal Call modal provides clickable prompt simulation buttons so the complete voice demo script can be demonstrated without a microphone.
 
 ## Environment Variables
-Create a `.env.local` file based on `.env.example`:
+Create `.env.local` based on `.env.example`:
 ```bash
-# Optional: Set an LLM provider key if you want live external LLM generation.
+# Optional: Set an external LLM API key if live remote LLM inference is desired.
 # If omitted or empty, NyayaVoice automatically uses its built-in deterministic legal intelligence engine.
 GEMINI_API_KEY=""
 OPENAI_API_KEY=""
@@ -56,42 +66,50 @@ NEXT_PUBLIC_VOICE_PROVIDER="browser"
 ```
 
 ## Important Files
-- `src/types/document.ts` - Central TypeScript interfaces and Zod schemas for clauses, obligations, and handoffs
-- `src/lib/documents/sample-documents.ts` - Fictional sample contracts for instant 1-click hackathon demo
-- `src/lib/documents/pdf-parser.ts` - PDF parsing and text normalization
-- `src/lib/ai/pipeline.ts` - Core multi-stage legal analysis pipeline
-- `src/lib/ai/heuristic-analyzer.ts` - High-accuracy local legal heuristic analyzer
-- `src/lib/voice/browser-voice.ts` - Web Speech API STT and TTS implementation
+- `src/app/page.tsx` - Main landing page and workspace orchestrator
 - `src/components/voice/LegalCallModal.tsx` - Hero voice call interface
-- `src/components/document/DocumentWorkspace.tsx` - Main legal workspace container
+- `src/components/voice/VoiceOrb.tsx` - Visual animated pulsing orb
+- `src/components/document/DocumentWorkspace.tsx` - Workspace container managing all 8 tabs
+- `src/components/document/ClauseViewer.tsx` - Clause viewer with live highlight integration
+- `src/components/legal/LegalActionMap.tsx` - Interactive tree visualization
+- `src/components/legal/BeforeISign.tsx` - High-value pre-signing review
+- `src/components/legal/ContractComparison.tsx` - Semantic contract diffing
+- `src/components/handoff/ProfessionalHandoff.tsx` - Lawyer consultation dossier
+- `src/lib/documents/sample-documents.ts` - Safe fictional contracts for instant demo
+- `src/lib/ai/heuristic-analyzer.ts` - Deterministic legal reasoning engine
+- `src/lib/voice/browser-voice.ts` - Web Speech API STT & TTS integration
 
 ## Database
-Currently using in-memory state and local storage for anonymous, zero-friction hackathon demos. Prepared for Supabase / PostgreSQL schema integration when authentication is enabled.
+Currently utilizes React state and client-side session storage for zero-setup, zero-friction hackathon demos. Prepared for Supabase / PostgreSQL schema integration when user authentication is required.
 
 ## AI Providers
-- Built-in Heuristic Analyzer: Default offline engine, extracts clauses, obligations, financial terms, dates, and plain-language summaries without any API keys.
-- Google Gemini: Activated when `GEMINI_API_KEY` is provided.
-- OpenAI: Activated when `OPENAI_API_KEY` is provided.
+- **Built-in Heuristic Analyzer**: Default offline engine in `src/lib/ai/heuristic-analyzer.ts`. Handles document classification, clause extraction, plain-language summaries, ambiguities, and grounded Q&A with Hindi/Hinglish code-switching.
+- **Google Gemini**: Automatically engaged if `GEMINI_API_KEY` is present in `.env.local`.
+- **OpenAI**: Ready for engagement via `src/lib/ai/providers.ts`.
 
 ## Voice Providers
-- Native Web Speech API: Built-in zero-dependency speech recognition and synthesis.
-- Interface contract: `SpeechToTextProvider`, `TextToSpeechProvider` in `src/lib/voice/types.ts`.
+- **Browser Web Speech API** (`BrowserSpeechToText` & `BrowserTextToSpeech` in `src/lib/voice/browser-voice.ts`):
+  - Recognition: `en-IN` (recognizes both English and Indian code-mixed Hinglish).
+  - Synthesis: Selects Indian English or Hindi speech voices with pitch and rate controls.
+  - Interruption / Barge-in: Automatically cancels speech synthesis when user speaks or clicks Interrupt.
 
 ## How To Run
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
 ## How To Test
 ```bash
+# Run automated E2E verification test suite:
+npm test
+
+# Run full production build & TypeScript validation:
 npm run build
-npm run lint
 ```
 
 ## Recommended Next Step
-Complete Milestone 2 implementation:
-1. Create `src/types/document.ts` with Zod validation.
-2. Create `src/lib/documents/sample-documents.ts` with the required Employment Agreement (60-day notice in Section 8.2, IP assignment in Section 7.1) and Freelance Contract.
-3. Build the heuristic legal analyzer in `src/lib/ai/heuristic-analyzer.ts`.
-4. Create the API route `/api/documents/parse`.
+If you wish to add P2 features:
+1. Implement a PDF file download for the Professional Handoff dossier using `@react-pdf/renderer` or `jspdf`.
+2. Connect Supabase PostgreSQL with `pgvector` for persisting past session histories across multiple browser restarts.
+3. Integrate Sarvam AI or Rumik OSS streaming endpoints into `src/lib/voice/browser-voice.ts` if a live Sarvam API key becomes available.
