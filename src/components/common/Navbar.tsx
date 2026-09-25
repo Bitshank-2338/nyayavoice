@@ -3,19 +3,25 @@
 import React from 'react';
 import { Scale, PhoneCall, FileText } from 'lucide-react';
 import { DocumentAnalysis } from '@/types/document';
+import { AccountControls } from '@/components/account/AccountControls';
+import { AppNotification } from '@/lib/account/user-library';
 
 interface NavbarProps {
   document: DocumentAnalysis | null;
   onOpenCall: () => void;
   onSelectNewDocument: () => void;
-  activeTab?: string;
-  onSelectTab?: (tab: string) => void;
+  notifications: AppNotification[];
+  onOpenHistoryItem: (id: string) => void;
+  onOpenTab?: (tab: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   document,
   onOpenCall,
   onSelectNewDocument,
+  notifications,
+  onOpenHistoryItem,
+  onOpenTab,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[#ece7f2] bg-white/80 backdrop-blur-xl" role="banner">
@@ -39,6 +45,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
 
         <div className="flex items-center gap-2">
+          <AccountControls
+            notifications={notifications}
+            onOpenHistoryItem={onOpenHistoryItem}
+            onOpenTab={onOpenTab}
+          />
           {document && (
             <button
               type="button"

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "@/components/common/Providers";
 
 export const metadata: Metadata = {
   title: "NyayaVoice — Real-Time Multilingual AI Legal Assistant",
@@ -23,7 +24,7 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

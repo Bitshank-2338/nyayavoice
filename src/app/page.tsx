@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Navbar } from '@/components/common/Navbar';
 import { DocumentUpload } from '@/components/document/DocumentUpload';
 import { DocumentWorkspace } from '@/components/document/DocumentWorkspace';
 import { ConversationTurn, DocumentAnalysis } from '@/types/document';
 import { SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS } from '@/lib/documents/sample-documents';
-import { clearSession, loadSession, saveSession } from '@/lib/session/session-store';
+import { notificationsForDocument } from '@/lib/account/user-library';
+import { clearSession, loadSession, NyayaSession, saveSession } from '@/lib/session/session-store';
 import { Scale, ArrowRight } from 'lucide-react';
 
 export default function Home() {
@@ -16,6 +19,22 @@ export default function Home() {
   const [highlightedSection, setHighlightedSection] = useState<string | undefined>('Section 8.2');
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [isCallOpen, setIsCallOpen] = useState(false);
+  const [accountNote, setAccountNote] = useState('');
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const { status } = useSession();
+  const notifications = useMemo(
+    () => notificationsForDocument(activeDocument, conversation),
+    [activeDocument, conversation],
+  );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && status === 'unauthenticated') router.replace('/signin');
+  }, [mounted, status, router]);
 
   useEffect(() => {
     const saved = loadSession();
@@ -42,6 +61,52 @@ export default function Home() {
     });
   }, [hydrated, activeDocument, activeTab, highlightedSection, conversation]);
 
+  useEffect(() => {
+    if (!hydrated || !activeDocument || status !== 'authenticated') return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          version: 1,
+          document: activeDocument,
+          activeTab,
+          highlightedSection,
+          conversation,
+          savedAt: new Date().toISOString(),
+        } satisfies NyayaSession),
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = (await res.json()) as { persisted?: string };
+          setAccountNote(
+            data.persisted === 'cloud'
+              ? 'Saved to your Google account.'
+              : 'Saved on this server for your signed-in account.',
+          );
+        })
+        .catch(() => undefined);
+    }, 900);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [hydrated, status, activeDocument, activeTab, highlightedSection, conversation]);
+
+  const openHistoryItem = async (id: string) => {
+    const res = await fetch(`/api/history?id=${encodeURIComponent(id)}`);
+    if (!res.ok) return;
+    const data = (await res.json()) as { item?: NyayaSession };
+    if (!data.item?.document) return;
+    setActiveDocument(data.item.document);
+    setActiveTab(data.item.activeTab || 'overview');
+    setHighlightedSection(data.item.highlightedSection);
+    setConversation(data.item.conversation || []);
+    setAccountNote('Opened a document from your account history.');
+  };
+
   const startFreshDocument = (document: DocumentAnalysis) => {
     setConversation([]);
     setActiveTab('overview');
@@ -54,6 +119,14 @@ export default function Home() {
     startFreshDocument(SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS);
   };
 
+  if (!mounted || status !== 'authenticated') {
+    return (
+      <main id="main" className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-sm text-[#5e595d]">Taking you to sign in…</p>
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-transparent text-[#161616] flex flex-col font-sans">
       
@@ -65,7 +138,15 @@ export default function Home() {
           setConversation([]);
           setActiveDocument(null);
         }}
+        notifications={notifications}
+        onOpenHistoryItem={openHistoryItem}
+        onOpenTab={setActiveTab}
       />
+      {accountNote && (
+        <p role="status" className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 text-xs text-[#4451c7]">
+          {accountNote}
+        </p>
+      )}
 
       <main id="main" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {!hydrated ? (

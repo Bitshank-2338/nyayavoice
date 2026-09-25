@@ -10,7 +10,7 @@
 3. If `GEMINI_API_KEY` is set, Google Gemini answers from retrieved clauses only. If Gemini is missing or fails, the same local engine answers.
 4. Every answer cites a section from the uploaded document, or says the point was not found.
 5. Voice, text, Tamil / Telugu / Bengali / Hindi / Hinglish, a pre-sign checklist, contract comparison, a downloadable handoff PDF, and a simulated counsel lane all use that same grounded result.
-6. The last document and questions stay in this browser (`localStorage`). There is no Supabase or other third-party database.
+6. Guests keep the last document in this browser (`localStorage`). Signed-in Google accounts also save a private history of agreements and questions. Important dates and review items appear as notices. There is no Supabase.
 
 ## How to test locally
 
@@ -26,7 +26,9 @@ Open [http://localhost:3000](http://localhost:3000). Choose **Start Legal Call (
 
 ## Google Cloud Run
 
-Remote intelligence is **Google Gemini** only (`GEMINI_API_KEY`). Voice stays in the browser. Persistence stays in the browser. The container is ready for Cloud Run (port `8080`, standalone Next.js server).
+Remote intelligence is **Google Gemini** only (`GEMINI_API_KEY`). Voice stays in the browser. Guests persist in the browser. Signed-in users persist to Firestore (REST, using the Cloud Run service account) when `GOOGLE_CLOUD_PROJECT` is set, and to server memory otherwise. The container is ready for Cloud Run (port `8080`, standalone Next.js server).
+
+Google sign-in uses Auth.js. Set `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, and `AUTH_URL`. Add the OAuth redirect `{origin}/api/auth/callback/google`. Without those values the app still runs and the sign-in button stays disabled.
 
 Antigravity, or any Cloud Run deploy, can build this `Dockerfile` and set:
 
