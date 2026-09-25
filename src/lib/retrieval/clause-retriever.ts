@@ -82,7 +82,7 @@ export function retrieveRelevantClauses(
   clauses: Clause[],
   limit = 4
 ): RetrievedClause[] {
-  const tokens = tokenizeQuestion(question);
+  const tokens = tokenizeQuestion(question).slice(0, 24);
   const scored: RetrievedClause[] = clauses.map((clause) => {
     const hay = `${clause.section} ${clause.title} ${clause.category} ${clause.sourceText} ${clause.plainLanguage}`.toLowerCase();
     let score = 0;

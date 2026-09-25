@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, History, LogIn, LogOut } from 'lucide-react';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { AppNotification, SavedDocumentSummary } from '@/lib/account/user-library';
+import { AppNotification, SavedDocumentSummary } from '@/lib/account/notifications';
 
 interface AccountControlsProps {
   notifications: AppNotification[];
@@ -31,8 +31,7 @@ export function AccountControls({ notifications, onOpenHistoryItem, onOpenTab }:
   }, []);
 
   useEffect(() => {
-    if (status !== 'authenticated') {
-      setHistory([]);
+    if (status !== 'authenticated' || open !== 'history') {
       return;
     }
     fetch('/api/history')

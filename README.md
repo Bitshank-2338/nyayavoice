@@ -20,6 +20,8 @@ npm test
 npm run dev
 ```
 
+`npm test` runs the local suite with no network and no API key. It checks sample structure, English and Hinglish answers, Tamil, Telugu, and Bengali detection, retrieval capped at four clauses, important-date notices, contract comparison, a not-found citation, and the handoff PDF header.
+
 Open [http://localhost:3000](http://localhost:3000). Choose **Start Legal Call (Live Demo)**. Ask about the notice period or personal projects, open **Professional Handoff**, and use **Download PDF**. Refresh the page: the same document and tab should return. **Switch Document** clears the saved session.
 
 `GET /api/health` returns `{ "ok": true }` for Cloud Run.

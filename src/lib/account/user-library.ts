@@ -1,21 +1,8 @@
-import { ConversationTurn, DocumentAnalysis } from '@/types/document';
 import { NyayaSession } from '@/lib/session/session-store';
+import { SavedDocumentSummary } from '@/lib/account/notifications';
 
-export interface SavedDocumentSummary {
-  id: string;
-  title: string;
-  documentType: string;
-  clauseCount: number;
-  savedAt: string;
-}
-
-export interface AppNotification {
-  id: string;
-  title: string;
-  body: string;
-  level: 'info' | 'important';
-  hrefTab?: string;
-}
+export type { AppNotification, SavedDocumentSummary } from '@/lib/account/notifications';
+export { notificationsForDocument } from '@/lib/account/notifications';
 
 const memory = new Map<string, NyayaSession[]>();
 
@@ -38,15 +25,21 @@ function projectId() {
   return process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || '';
 }
 
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
 async function accessToken() {
   if (process.env.FIRESTORE_ACCESS_TOKEN) return process.env.FIRESTORE_ACCESS_TOKEN;
+  if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value;
   const res = await fetch(
     'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
     { headers: { 'Metadata-Flavor': 'Google' } },
   );
   if (!res.ok) return null;
-  const data = (await res.json()) as { access_token?: string };
-  return data.access_token || null;
+  const data = (await res.json()) as { access_token?: string; expires_in?: number };
+  if (!data.access_token) return null;
+  const seconds = typeof data.expires_in === 'number' ? data.expires_in : 3600;
+  cachedToken = { value: data.access_token, expiresAt: Date.now() + Math.max(60, seconds - 120) * 1000 };
+  return data.access_token;
 }
 
 function docUrl(email: string, id?: string) {
@@ -164,43 +157,3 @@ export async function loadUserDocument(email: string, id: string): Promise<Nyaya
   return (memory.get(key) || []).find((item) => item.document.documentId === id) || null;
 }
 
-export function notificationsForDocument(document: DocumentAnalysis | null, conversation: ConversationTurn[]): AppNotification[] {
-  if (!document) {
-    return [{
-      id: 'welcome',
-      title: 'Sign in to keep your work',
-      body: 'Google sign-in saves each agreement, question, and review item to your account.',
-      level: 'info',
-    }];
-  }
-
-  const items: AppNotification[] = document.importantDates.slice(0, 4).map((date, index) => ({
-    id: `date_${index}_${date.label}`,
-    title: date.label,
-    body: `${date.dateOrPeriod}${date.section ? ` · ${date.section}` : ''}`,
-    level: 'important' as const,
-    hrefTab: 'timeline',
-  }));
-
-  document.potentialAmbiguities.slice(0, 3).forEach((item, index) => {
-    items.push({
-      id: `review_${index}_${item.section}`,
-      title: `Review ${item.section}`,
-      body: item.issue,
-      level: 'important',
-      hrefTab: 'before-i-sign',
-    });
-  });
-
-  if (conversation.length > 0) {
-    items.push({
-      id: 'chat',
-      title: 'Questions saved with this document',
-      body: `${conversation.filter((turn) => turn.role === 'user').length} question(s) stay in your history.`,
-      level: 'info',
-      hrefTab: 'ask',
-    });
-  }
-
-  return items;
-}

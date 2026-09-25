@@ -4,7 +4,7 @@ import React from 'react';
 import { Scale, PhoneCall, FileText } from 'lucide-react';
 import { DocumentAnalysis } from '@/types/document';
 import { AccountControls } from '@/components/account/AccountControls';
-import { AppNotification } from '@/lib/account/user-library';
+import { AppNotification } from '@/lib/account/notifications';
 
 interface NavbarProps {
   document: DocumentAnalysis | null;

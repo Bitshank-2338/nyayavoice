@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx -y tsx scripts/test-e2e.ts"
+    "test": "tsx scripts/test-e2e.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

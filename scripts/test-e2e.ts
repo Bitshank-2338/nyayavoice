@@ -4,6 +4,11 @@ import { analyzeDocumentHeuristically, answerDocumentQuestionHeuristically } fro
 
 import { buildHandoffPdf } from '../src/lib/handoff/handoff-pdf';
 import { buildProfessionalHandoff, formatDossierText } from '../src/lib/handoff/build-handoff';
+import { compareDocuments } from '../src/lib/documents/compare-documents';
+import { detectSpokenLanguage } from '../src/lib/i18n/languages';
+import { notificationsForDocument } from '../src/lib/account/notifications';
+import { retrieveRelevantClauses } from '../src/lib/retrieval/clause-retriever';
+import { notFoundAnswer, validateGroundedAnswer } from '../src/lib/ai/citation-validator';
 
 function check(condition: unknown, message: string) {
   if (!condition) {
@@ -65,5 +70,25 @@ check(new TextDecoder().decode(pdf.slice(0, 8)) === '%PDF-1.4', 'Expected a PDF 
 check(dossier.includes('not legal advice'), 'Expected the legal-information disclaimer in the dossier');
 console.log('✓ Handoff dossier and PDF header verified');
 console.log(`✓ Raw text parser correctly extracted document structure (${parsedDoc.clauses.length} clauses, ${parsedDoc.userObligations.length} obligations)`);
+
+console.log('\n5. Testing retrieval limits, languages, notices, and comparison...');
+const retrieved = retrieveRelevantClauses('notice period', sample.clauses, 4);
+check(retrieved.length > 0 && retrieved.length <= 4, `Expected 1 to 4 clauses, got ${retrieved.length}`);
+check(retrieved[0].score >= retrieved[retrieved.length - 1].score, 'Expected scores in descending order');
+check(detectSpokenLanguage('నోటీసు వ్యవధి ఎంత?') === 'te', 'Expected Telugu detection');
+check(detectSpokenLanguage('নোটিশের সময়সীমা কত?') === 'bn', 'Expected Bengali detection');
+
+const notices = notificationsForDocument(sample, [{ id: 't1', role: 'user', text: 'notice?' }]);
+check(notices.some((item) => item.hrefTab === 'timeline'), 'Expected an important-date notice');
+check(notices.some((item) => item.hrefTab === 'before-i-sign'), 'Expected a review notice');
+check(notices.some((item) => item.id === 'chat'), 'Expected a saved-question notice');
+
+const compared = compareDocuments(sample, SAMPLE_DOCUMENTS[1].precomputedAnalysis);
+check(compared.comparisons.length >= 3, `Expected comparison rows, got ${compared.comparisons.length}`);
+
+const missing = validateGroundedAnswer(notFoundAnswer('unrelated volcano clause', 'en'), sample.clauses);
+check(missing.sourceClauses.length === 0, 'Expected a not-found answer to cite nothing');
+check(missing.distinction.notInDocument.length > 0, 'Expected a not-in-document distinction');
+console.log('✓ Retrieval, Telugu, Bengali, notices, comparison, and citation checks passed');
 
 console.log('\n=== ALL E2E VERIFICATION CHECKS PASSED SUCCESSFULLY! ===\n');

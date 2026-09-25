@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Navbar } from '@/components/common/Navbar';
@@ -8,7 +8,7 @@ import { DocumentUpload } from '@/components/document/DocumentUpload';
 import { DocumentWorkspace } from '@/components/document/DocumentWorkspace';
 import { ConversationTurn, DocumentAnalysis } from '@/types/document';
 import { SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS } from '@/lib/documents/sample-documents';
-import { notificationsForDocument } from '@/lib/account/user-library';
+import { notificationsForDocument } from '@/lib/account/notifications';
 import { clearSession, loadSession, NyayaSession, saveSession } from '@/lib/session/session-store';
 import { Scale, ArrowRight } from 'lucide-react';
 
@@ -21,6 +21,7 @@ export default function Home() {
   const [isCallOpen, setIsCallOpen] = useState(false);
   const [accountNote, setAccountNote] = useState('');
   const [mounted, setMounted] = useState(false);
+  const lastCloudSave = useRef('');
   const router = useRouter();
   const { status } = useSession();
   const notifications = useMemo(
@@ -63,6 +64,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated || !activeDocument || status !== 'authenticated') return;
+    const fingerprint = `${activeDocument.documentId}|${activeTab}|${highlightedSection || ''}|${conversation.length}|${conversation[conversation.length - 1]?.text || ''}`;
+    if (lastCloudSave.current === fingerprint) return;
+    lastCloudSave.current = fingerprint;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       fetch('/api/history', {
