@@ -113,7 +113,7 @@ export const GroundedAnswerSchema = z.object({
   thingsToVerify: z.array(z.string()).default([]),
   suggestedQuestions: z.array(z.string()).default([]),
   confidence: z.enum(['high', 'medium', 'low']).default('high'),
-  language: z.enum(['en', 'hi', 'hinglish']).default('en'),
+  language: z.enum(['en', 'hi', 'hinglish', 'ta', 'te', 'bn']).default('en'),
   distinction: z.object({
     explicitlyStated: z.string().optional(),
     inference: z.string().optional(),
@@ -172,3 +172,12 @@ export const ProfessionalHandoffSchema = z.object({
 });
 
 export type ProfessionalHandoff = z.infer<typeof ProfessionalHandoffSchema>;
+
+export const ConversationTurnSchema = z.object({
+  id: z.string(),
+  role: z.enum(['user', 'assistant']),
+  text: z.string(),
+  section: z.string().optional(),
+});
+
+export type ConversationTurn = z.infer<typeof ConversationTurnSchema>;

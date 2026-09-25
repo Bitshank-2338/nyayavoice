@@ -1,7 +1,9 @@
+import { SpokenLanguage } from '@/lib/i18n/languages';
+
 export interface SpeechToTextResult {
   transcript: string;
   isFinal: boolean;
-  languageDetected?: 'en' | 'hi' | 'hinglish';
+  languageDetected?: SpokenLanguage;
   confidence?: number;
 }
 
@@ -19,7 +21,7 @@ export interface TextToSpeechProvider {
   speak: (
     text: string,
     options?: {
-      language?: 'en' | 'hi' | 'hinglish';
+      language?: SpokenLanguage;
       rate?: number;
       pitch?: number;
       onStart?: () => void;
@@ -36,4 +38,12 @@ export interface RealtimeVoiceSession {
   state: 'idle' | 'listening' | 'thinking' | 'speaking' | 'interrupted';
   activeClauseId?: string;
   activeSection?: string;
+}
+
+/** Future streaming vendors (Sarvam, Rumik, ElevenLabs) should implement this. */
+export interface RealtimeVoiceProvider {
+  connect: (opts: { language?: SpokenLanguage }) => Promise<void>;
+  disconnect: () => Promise<void>;
+  sendAudio?: (chunk: ArrayBuffer) => void;
+  onTranscript?: (text: string, isFinal: boolean) => void;
 }

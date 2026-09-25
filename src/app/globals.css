@@ -1,26 +1,112 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f4fb;
+  --foreground: #161616;
+  --law-card: #ffffff;
+  --law-muted: #5e595d;
+  --law-line: #ece7f2;
+  --law-accent: #4451c7;
+  --law-pink: #cd6596;
+  --law-lilac: #bba6be;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(900px 420px at 10% -10%, rgba(187, 166, 190, 0.45), transparent 60%),
+    radial-gradient(700px 380px at 100% 0%, rgba(68, 81, 199, 0.16), transparent 55%),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* LawAI light treatment for the existing screen structure */
+html.lawai .bg-slate-950\/70,
+html.lawai .bg-slate-950\/85,
+html.lawai .bg-slate-950,
+html.lawai .bg-slate-950\/80,
+html.lawai .bg-slate-950\/60,
+html.lawai .bg-slate-950\/40,
+html.lawai .bg-slate-900,
+html.lawai .bg-slate-900\/80,
+html.lawai .bg-slate-900\/60,
+html.lawai .bg-slate-900\/40,
+html.lawai .bg-slate-800,
+html.lawai .bg-slate-800\/70,
+html.lawai .bg-slate-800\/50 {
+  background-color: #ffffff !important;
+}
+
+html.lawai .border-slate-900,
+html.lawai .border-slate-800,
+html.lawai .border-slate-800\/80,
+html.lawai .border-slate-800\/60,
+html.lawai .border-slate-700,
+html.lawai .border-slate-700\/80,
+html.lawai .border-slate-700\/60 {
+  border-color: var(--law-line) !important;
+}
+
+html.lawai .text-white {
+  color: #161616 !important;
+}
+
+html.lawai .text-slate-100,
+html.lawai .text-slate-200,
+html.lawai .text-slate-300 {
+  color: #2a272b !important;
+}
+
+html.lawai .text-slate-400,
+html.lawai .text-slate-500 {
+  color: var(--law-muted) !important;
+}
+
+html.lawai .bg-indigo-600,
+html.lawai .bg-indigo-600\/20,
+html.lawai .bg-rose-600,
+html.lawai .bg-emerald-600,
+html.lawai .bg-emerald-500,
+html.lawai [class*="from-emerald"],
+html.lawai [class*="from-indigo"],
+html.lawai [class*="to-indigo"],
+html.lawai [class*="to-violet"],
+html.lawai [class*="from-slate-900"] {
+  color: #ffffff !important;
+}
+
+html.lawai .bg-indigo-600,
+html.lawai .bg-rose-600,
+html.lawai .bg-emerald-600 {
+  background-color: var(--law-accent) !important;
+  color: #ffffff !important;
+}
+
+html.lawai .bg-rose-600 {
+  background-color: #df3d46 !important;
+}
+
+html.lawai [class*="from-emerald"],
+html.lawai [class*="from-indigo-600"],
+html.lawai [class*="via-indigo"] {
+  background-image: linear-gradient(90deg, #4451c7, #7a6bb5 55%, #cd6596) !important;
+  color: #ffffff !important;
+}
+
+html.lawai .shadow-2xl,
+html.lawai .shadow-xl,
+html.lawai .shadow-lg {
+  box-shadow: 0 18px 50px rgba(68, 81, 199, 0.08) !important;
+}
+
+html.lawai .bg-\[\#161616\],
+html.lawai .bg-\[\#4451c7\] {
+  color: #ffffff !important;
 }

@@ -16,14 +16,26 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<ParsedPdfResul
     const pageCount = textResult.total || (textResult.pages ? textResult.pages.length : 1);
     await parser.destroy();
 
-    const cleanedText = sanitizeLegalText(textResult.text);
-    return {
-      text: cleanedText,
-      pageCount,
-    };
+    if (textResult.text && textResult.text.trim().length >= 20) {
+      const cleanedText = sanitizeLegalText(textResult.text);
+      return {
+        text: cleanedText,
+        pageCount,
+      };
+    }
+
+    const err = new Error('NO_SELECTABLE_TEXT');
+    (err as Error & { code?: string }).code = 'NO_SELECTABLE_TEXT';
+    throw err;
   } catch (error) {
-    console.error('Error parsing PDF with PDFParse:', error);
-    // Fallback: simple ascii string extraction if binary contains readable text streams
+    console.error('Error parsing PDF with PDFParse');
+    if (error instanceof Error && (error as Error & { code?: string }).code === 'NO_SELECTABLE_TEXT') {
+      throw error;
+    }
+    const looksLikePdf = buffer.slice(0, 5).toString('latin1').startsWith('%PDF');
+    if (looksLikePdf) {
+      throw new Error('Failed to parse PDF document');
+    }
     const fallbackText = extractPrintableTextFromBuffer(buffer);
     if (fallbackText && fallbackText.length > 50) {
       return {

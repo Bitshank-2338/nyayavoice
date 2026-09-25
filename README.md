@@ -1,3 +1,49 @@
+# NyayaVoice — AI for Legal Assistance & Access
+
+**Vertical:** AI for Legal Assistance & Access.  
+**Persona:** A person in India who has a contract and needs to understand it before signing or speaking with a lawyer. NyayaVoice is legal information and consultation preparation. It is not a lawyer and does not give legal advice.
+
+## Approach and logic
+
+1. Load a sample agreement or an uploaded PDF.
+2. Extract clauses, obligations, dates, and review items with a deterministic engine so the demo works with no API key.
+3. If `GEMINI_API_KEY` is set, Google Gemini answers from retrieved clauses only. If Gemini is missing or fails, the same local engine answers.
+4. Every answer cites a section from the uploaded document, or says the point was not found.
+5. Voice, text, Tamil / Telugu / Bengali / Hindi / Hinglish, a pre-sign checklist, contract comparison, a downloadable handoff PDF, and a simulated counsel lane all use that same grounded result.
+6. The last document and questions stay in this browser (`localStorage`). There is no Supabase or other third-party database.
+
+## How to test locally
+
+```bash
+npm install
+npm test
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). Choose **Start Legal Call (Live Demo)**. Ask about the notice period or personal projects, open **Professional Handoff**, and use **Download PDF**. Refresh the page: the same document and tab should return. **Switch Document** clears the saved session.
+
+`GET /api/health` returns `{ "ok": true }` for Cloud Run.
+
+## Google Cloud Run
+
+Remote intelligence is **Google Gemini** only (`GEMINI_API_KEY`). Voice stays in the browser. Persistence stays in the browser. The container is ready for Cloud Run (port `8080`, standalone Next.js server).
+
+Antigravity, or any Cloud Run deploy, can build this `Dockerfile` and set:
+
+- `GEMINI_API_KEY` (optional; the offline engine still runs if it is empty)
+- `PORT=8080` (Cloud Run sets this itself)
+
+Do not commit `.env.local`. The repository must stay public, on one branch, and under 10 MB.
+
+## Assumptions
+
+- Sample contracts are fictional and safe to demo.
+- Browser speech quality depends on the installed voices for Tamil, Telugu, and Bengali.
+- The handoff PDF is Latin-text. Use **Copy Dossier** when the text includes Indian scripts.
+- A joined “counsel” participant is a simulation, labeled as such, and is not legal advice.
+
+---
+
 # NyayaVoice — Real-Time Multilingual AI Legal Assistant
 
 > **Understand legal documents by talking to them.**

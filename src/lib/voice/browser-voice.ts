@@ -1,6 +1,7 @@
 'use client';
 
 import { SpeechToTextProvider, TextToSpeechProvider, SpeechToTextResult } from './types';
+import { detectSpokenLanguage, speechLocale, SpokenLanguage } from '@/lib/i18n/languages';
 
 // Browser Web Speech Recognition implementation
 export class BrowserSpeechToText implements SpeechToTextProvider {
@@ -28,13 +29,9 @@ export class BrowserSpeechToText implements SpeechToTextProvider {
     return Boolean(this.recognition);
   }
 
-  public setLanguage(lang: 'en' | 'hi' | 'hinglish') {
+  public setLanguage(lang: SpokenLanguage) {
     if (this.recognition) {
-      if (lang === 'hi') {
-        this.recognition.lang = 'hi-IN';
-      } else {
-        this.recognition.lang = 'en-IN';
-      }
+      this.recognition.lang = speechLocale(lang);
     }
   }
 
@@ -67,12 +64,11 @@ export class BrowserSpeechToText implements SpeechToTextProvider {
       }
 
       const text = finalTranscript || interimTranscript;
-      const isHindiOrHinglish = /[\u0900-\u097F]|kya|hai|kitna|batao|samjhao|kaise|mein|isme/i.test(text);
 
       onResult({
         transcript: text,
         isFinal: Boolean(finalTranscript),
-        languageDetected: isHindiOrHinglish ? 'hinglish' : 'en',
+        languageDetected: detectSpokenLanguage(text),
       });
     };
 
@@ -116,6 +112,7 @@ export class BrowserTextToSpeech implements TextToSpeechProvider {
   private synth: SpeechSynthesis | null = null;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private speaking: boolean = false;
+  private speakGeneration = 0;
 
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -130,7 +127,7 @@ export class BrowserTextToSpeech implements TextToSpeechProvider {
   public speak(
     text: string,
     options?: {
-      language?: 'en' | 'hi' | 'hinglish';
+      language?: SpokenLanguage;
       rate?: number;
       pitch?: number;
       onStart?: () => void;
@@ -140,11 +137,12 @@ export class BrowserTextToSpeech implements TextToSpeechProvider {
   ) {
     if (!this.synth) {
       options?.onError?.('Speech synthesis not supported');
+      options?.onEnd?.();
       return;
     }
 
-    // Cancel any previous speech immediately
     this.stop();
+    const generation = this.speakGeneration;
 
     // Clean text of markdown asterisks or citations
     const cleanText = text
@@ -160,18 +158,14 @@ export class BrowserTextToSpeech implements TextToSpeechProvider {
 
     // Select suitable voice
     const voices = this.synth.getVoices();
-    const isHindiOrHinglish = options?.language === 'hi' || options?.language === 'hinglish';
-
-    if (isHindiOrHinglish) {
-      const hindiVoice = voices.find(v => v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi') || v.lang.includes('IN'));
-      if (hindiVoice) utterance.voice = hindiVoice;
-      utterance.lang = hindiVoice?.lang || 'hi-IN';
-    } else {
-      const indianEnglish = voices.find(v => v.lang === 'en-IN' || v.name.toLowerCase().includes('india'));
-      const englishVoice = indianEnglish || voices.find(v => v.lang.startsWith('en'));
-      if (englishVoice) utterance.voice = englishVoice;
-      utterance.lang = englishVoice?.lang || 'en-IN';
-    }
+    const locale = speechLocale(options?.language || 'en');
+    const prefix = locale.slice(0, 2);
+    const matched =
+      voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ||
+      voices.find((v) => v.lang === 'en-IN' || v.name.toLowerCase().includes('india')) ||
+      voices.find((v) => v.lang.startsWith('en'));
+    if (matched) utterance.voice = matched;
+    utterance.lang = matched?.lang || locale;
 
     utterance.rate = options?.rate || 1.0;
     utterance.pitch = options?.pitch || 1.0;
@@ -182,17 +176,20 @@ export class BrowserTextToSpeech implements TextToSpeechProvider {
     };
 
     utterance.onend = () => {
+      if (generation !== this.speakGeneration) return;
       this.speaking = false;
       this.currentUtterance = null;
       options?.onEnd?.();
     };
 
     utterance.onerror = (e) => {
+      if (generation !== this.speakGeneration) return;
       this.speaking = false;
       this.currentUtterance = null;
-      // Speech cancel is not an error
       if (e.error !== 'interrupted' && e.error !== 'canceled') {
         options?.onError?.(e);
+      } else {
+        options?.onEnd?.();
       }
     };
 
@@ -200,6 +197,7 @@ export class BrowserTextToSpeech implements TextToSpeechProvider {
   }
 
   public stop() {
+    this.speakGeneration += 1;
     if (this.synth) {
       this.synth.cancel();
       this.speaking = false;

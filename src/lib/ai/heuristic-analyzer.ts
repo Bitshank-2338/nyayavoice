@@ -1,5 +1,14 @@
-import { DocumentAnalysis, Clause, Obligation, ImportantDate, FinancialTerm, Restriction, Ambiguity, QuestionForProfessional, GroundedAnswer } from '@/types/document';
+import { DocumentAnalysis, Clause, Obligation, ImportantDate, FinancialTerm, Restriction, Ambiguity, ConversationTurn, GroundedAnswer } from '@/types/document';
 import { segmentTextIntoDraftClauses } from '../documents/pdf-parser';
+import {
+  detectLanguage,
+  extractNoticePeriodFromText,
+  isOutOfDocumentLegalRequest,
+  resolveQuestionWithHistory,
+  retrieveRelevantClauses,
+} from '../retrieval/clause-retriever';
+import { notFoundAnswer, validateGroundedAnswer } from './citation-validator';
+import { regionalLead, SpokenLanguage } from '@/lib/i18n/languages';
 
 /**
  * Intelligent deterministic legal document analyzer.
@@ -145,7 +154,7 @@ function extractParties(text: string, docType: string): Array<{ name: string; ro
 }
 
 function extractEffectiveDate(text: string): string | null {
-  const match = text.match(/(?:dated as of|effective as of|entered into as of|effective date[:\s]+)([A-Za-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+  const match = text.match(/(?:dated as of|effective as of|entered into as of|effective date[:\s]+)([A-Za-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[A-Za-z]+\s+\d{4}|\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
   return match ? match[1] : null;
 }
 
@@ -174,28 +183,30 @@ function analyzeClause(section: string, title: string, content: string, index: n
   // Pattern detection for categories
   if (lower.includes('notice') || lower.includes('terminat')) {
     category = "Termination & Notice";
-    const noticeDays = content.match(/(\d+)\s*(?:calendar\s*)?days/i);
-    const days = noticeDays ? noticeDays[1] : "60";
-    plainLanguage = `Either party can terminate this agreement by providing ${days} days' written notice. Review whether pay in lieu or buyouts are allowed.`;
-    obligationsText.push(`Must give ${days} days' prior written notice to terminate.`);
-    importantDatesText.push(`Notice Period: ${days} days written notice`);
+    const extracted = extractNoticePeriodFromText(content);
+    const daysPhrase = extracted || 'the written notice period stated in this clause';
+    plainLanguage = `This clause covers ending the agreement and ${daysPhrase}. Review whether pay in lieu or buyouts are described.`;
+    obligationsText.push(`Follow the termination and notice process described: ${daysPhrase}.`);
+    if (extracted) importantDatesText.push(`Notice Period: ${extracted}`);
 
     userObligations.push({
       id: `ob_u_${index}`,
       who: 'user',
-      text: `Must provide at least ${days} days' prior written notice before resigning.`,
+      text: `Must follow the termination/notice process in this clause (${daysPhrase}).`,
       section: section || `Section ${index}`,
       priority: 'high',
     });
 
-    importantDates.push({
-      id: `date_${index}`,
-      label: 'Notice Period',
-      dateOrPeriod: `${days} Days Written Notice`,
-      section: section || `Section ${index}`,
-      type: 'noticePeriod',
-      consequence: 'Notice required prior to termination without cause.',
-    });
+    if (extracted) {
+      importantDates.push({
+        id: `date_${index}`,
+        label: 'Notice Period',
+        dateOrPeriod: extracted,
+        section: section || `Section ${index}`,
+        type: 'noticePeriod',
+        consequence: 'Notice required prior to termination without cause, as written in this clause.',
+      });
+    }
 
     if (lower.includes('sole discretion') || lower.includes('cannot buy out') || lower.includes('company approval')) {
       reviewReason = "Asymmetrical notice buyout: Company may pay in lieu, but employee buyout requires explicit consent.";
@@ -208,19 +219,23 @@ function analyzeClause(section: string, title: string, content: string, index: n
       };
       questionForProf = {
         category: "Notice Period",
-        question: `Can the employer legally refuse to let me buy out my ${days}-day notice period under Indian labor norms?`,
+        question: `Can a party refuse a notice buyout under the wording of this clause, and how does that interact with applicable labor norms?`,
         relevantSection: section || `Section ${index}`,
         context: "Evaluating joining timelines and mobility.",
       };
     }
   } else if (lower.includes('intellectual property') || lower.includes('inventions') || lower.includes('work product') || lower.includes('patent')) {
     category = "Intellectual Property";
-    plainLanguage = "The company claims ownership of all code, designs, and inventions created during your engagement relating to their business.";
-    obligationsText.push("Assign all created intellectual property and code to the Company.");
+    const broad = /all intellectual property|relating directly or indirectly|sole and exclusive property/i.test(content);
+    const narrow = /created specifically for|work created specifically|retains/i.test(content);
+    plainLanguage = broad && !narrow
+      ? "This clause assigns a broad set of works or inventions connected to the engagement. Read the exact assignment and any carve-outs."
+      : "This clause describes who owns intellectual property created in connection with the engagement. Check assignment scope and retained rights.";
+    obligationsText.push("Follow the intellectual property assignment and disclosure steps written in this clause.");
     userObligations.push({
       id: `ob_u_${index}`,
       who: 'user',
-      text: "Must assign all works and code created during the term of employment.",
+      text: "Must follow the IP assignment, disclosure, and carve-out process written in this clause.",
       section: section || `Section ${index}`,
       priority: 'high',
     });
@@ -264,21 +279,42 @@ function analyzeClause(section: string, title: string, content: string, index: n
     };
   } else if (lower.includes('confidential') || lower.includes('trade secret') || lower.includes('non-disclosure')) {
     category = "Confidentiality";
-    plainLanguage = "You must strictly protect company trade secrets and confidential information indefinitely.";
-    obligationsText.push("Protect proprietary company data from unauthorized disclosure.");
+    const duration = content.match(/(\d+)\s*(?:years|months)/i)?.[0] || (/indefinitely|without time limitation|perpetual/i.test(content) ? 'Duration as written (may be ongoing)' : 'Duration as written in clause');
+    plainLanguage = `This clause requires protection of confidential information. Duration/scope: ${duration}.`;
+    obligationsText.push("Protect confidential information as written; do not assume extra exceptions.");
     userObligations.push({
       id: `ob_u_${index}`,
       who: 'user',
-      text: "Must preserve strict confidentiality of company trade secrets and algorithms.",
+      text: "Must protect confidential information according to this clause.",
       section: section || `Section ${index}`,
       priority: 'high',
     });
     restrictions.push({
-      title: "Indefinite Confidentiality",
-      description: "Proprietary information must never be disclosed or used for personal gain.",
+      title: "Confidentiality",
+      description: content.slice(0, 180),
       section: section || `Section ${index}`,
-      durationOrScope: "Indefinite",
+      durationOrScope: duration,
     });
+  } else if (lower.includes('liability') || lower.includes('indemnif') || lower.includes('damages')) {
+    category = "Liability";
+    plainLanguage = "This clause allocates liability, indemnities, or damage caps. Read the cap and the exceptions (for example gross negligence) as written.";
+  } else if (lower.includes('dispute') || lower.includes('arbitration') || lower.includes('governing law')) {
+    category = "Dispute Resolution";
+    plainLanguage = "This clause states governing law and how disputes are to be handled (for example arbitration or courts).";
+  } else if (lower.includes('renew') || lower.includes('term of') || lower.includes('effective date')) {
+    category = "Term & Renewal";
+    const period = content.match(/(\d+)\s*(?:months|years|days)/i)?.[0];
+    if (period) {
+      importantDates.push({
+        id: `date_term_${index}`,
+        label: 'Term / renewal period',
+        dateOrPeriod: period,
+        section: section || `Section ${index}`,
+        type: 'milestone',
+        consequence: 'Check auto-renewal and notice-before-renewal wording.',
+      });
+    }
+    plainLanguage = "This clause describes how long the agreement lasts and whether it renews automatically.";
   } else if (lower.includes('salary') || lower.includes('compensation') || lower.includes('fee') || lower.includes('payment') || lower.includes('bonus')) {
     category = "Compensation & Financial";
     plainLanguage = "Details your compensation structure, payment dates, deductions, and any bonus eligibility.";
@@ -331,186 +367,153 @@ function generateDocumentSummary(docType: string, parties: Array<{ name: string 
   return `This ${docType} between ${p1} and ${p2} contains ${clauses.length} identified sections, with ${obligations.length} primary user obligations and ${dates.length} key dates. Important areas identified for review include notice provisions, intellectual property ownership, and restrictive covenants.`;
 }
 
+function buildSources(retrieved: ReturnType<typeof retrieveRelevantClauses>) {
+  return retrieved.slice(0, 3).map((item) => ({
+    section: item.clause.section,
+    title: item.clause.title,
+    snippet: item.clause.sourceText.slice(0, 220),
+    relevance: item.reason,
+  }));
+}
+
+function phraseInLanguage(lang: SpokenLanguage, english: string, hinglish: string): string {
+  if (lang === 'en') return english;
+  if (lang === 'hi' || lang === 'hinglish') return hinglish;
+  const lead = regionalLead(lang);
+  return lead ? `${lead}${english}` : english;
+}
+
 /**
  * Answers questions about the document strictly grounded in retrieved clauses.
- * Supports multilingual responses (English, Hindi, Hinglish).
+ * Conversation history is used only to resolve follow-ups; document text remains untrusted evidence.
  */
 export function answerDocumentQuestionHeuristically(
   question: string,
-  analysis: DocumentAnalysis
+  analysis: DocumentAnalysis,
+  history: ConversationTurn[] = []
 ): GroundedAnswer {
+  const lang = detectLanguage(question);
   const qLower = question.toLowerCase();
-  
-  // Detect language intent
-  const isHindi = /[\u0900-\u097F]/.test(question);
-  const isHinglish = /kya|hai|kitna|batao|samjhao|kaise|mein|isme|kuch|chahiye|hoga/i.test(qLower);
-  const lang = isHindi ? 'hi' : (isHinglish ? 'hinglish' : 'en');
 
-  // Search relevant clauses
-  let bestClause = analysis.clauses[0];
-  let relevanceReason = "General document context";
-
-  if (qLower.includes('notice') || qLower.includes('resig') || qLower.includes('terminat') || qLower.includes('chhod')) {
-    const found = analysis.clauses.find(c => c.section.includes('8') || c.category.includes('Termination') || c.title.toLowerCase().includes('notice'));
-    if (found) {
-      bestClause = found;
-      relevanceReason = "Directly specifies termination without cause and notice period requirements.";
-    }
-  } else if (qLower.includes('open source') || qLower.includes('project') || qLower.includes('ip') || qLower.includes('patent') || qLower.includes('invention') || qLower.includes('code') || qLower.includes('personal')) {
-    const found = analysis.clauses.find(c => c.section.includes('7') || c.category.includes('Intellectual Property') || c.title.toLowerCase().includes('intellectual'));
-    if (found) {
-      bestClause = found;
-      relevanceReason = "Governs ownership of code, inventions, and personal works authored during employment.";
-    }
-  } else if (qLower.includes('non-compete') || qLower.includes('competitor') || qLower.includes('dusri company') || qLower.includes('restrict')) {
-    const found = analysis.clauses.find(c => c.section.includes('10') || c.category.includes('Restrictions') || c.title.toLowerCase().includes('compete'));
-    if (found) {
-      bestClause = found;
-      relevanceReason = "Defines post-employment restrictions on competitive employment.";
-    }
-  } else if (qLower.includes('salary') || qLower.includes('paisa') || qLower.includes('bonus') || qLower.includes('compensation') || qLower.includes('pay')) {
-    const found = analysis.clauses.find(c => c.section.includes('2') || c.category.includes('Compensation'));
-    if (found) {
-      bestClause = found;
-      relevanceReason = "Specifies base compensation, bonus eligibility, and payment schedules.";
-    }
-  }
-
-  // Generate Grounded Response based on language
-  if (lang === 'hinglish') {
-    if (qLower.includes('notice') || qLower.includes('kitna') || qLower.includes('chhod')) {
-      return {
-        shortAnswer: `${bestClause.section} ke mutabik, 60 days ka prior written notice dena zaroori hai.`,
-        explanation: `${bestClause.section} clearly specify karta hai ki agar aap resign karna chahte hain toh kam se kam 60 days ka written notice dena padega. Company chahe toh salary pay karke early relieve kar sakti hai, lekin aap bina company ke written approval ke notice buyout nahi kar sakte.`,
-        sourceClauses: [{
-          section: bestClause.section,
-          title: bestClause.title,
-          snippet: bestClause.sourceText.slice(0, 220),
-          relevance: relevanceReason,
-        }],
-        thingsToVerify: [
-          "Check whether company approval is obtainable for a notice buyout if you get a new offer.",
-          "Check if accrued bonuses will be paid out during notice period.",
-        ],
-        suggestedQuestions: [
-          "Can the company force me to serve the full 60 days if my new employer needs me sooner?",
-          "How is garden leave treated during the notice period?",
-        ],
-        confidence: 'high',
-        language: 'hinglish',
-        distinction: {
-          explicitlyStated: "Agreement requires 60 days' written notice.",
-          inference: "Employee buyout requires unilateral company consent.",
-          notInDocument: "No automatic waiver for urgent career transitions.",
-        },
-      };
-    } else if (qLower.includes('project') || qLower.includes('open source') || qLower.includes('personal')) {
-      return {
-        shortAnswer: `${bestClause.section} ke according, company un sabhi code aur inventions par ownership claim karti hai jo unke business se directly ya indirectly related ho.`,
-        explanation: `${bestClause.section} kafi broad hai. Agar aapka personal open-source project company ke cloud orchestration business se thoda bhi match karta hai, toh contract ke hisab se company uspar claim kar sakti hai, jab tak ki aap use Exhibit A mein explicitly disclose karke carve-out na kara lein.`,
-        sourceClauses: [{
-          section: bestClause.section,
-          title: bestClause.title,
-          snippet: bestClause.sourceText.slice(0, 220),
-          relevance: relevanceReason,
-        }],
-        thingsToVerify: [
-          "Whether you have listed all personal repositories in Exhibit A prior to signing.",
-          "Requesting written confirmation for non-work-related open-source contributions.",
-        ],
-        suggestedQuestions: [
-          "Does Section 7.1 cover hobby code built on weekends on a personal computer?",
-          "How can I formally add my existing GitHub projects to Exhibit A?",
-        ],
-        confidence: 'high',
-        language: 'hinglish',
-        distinction: {
-          explicitlyStated: "All inventions related directly or indirectly are assigned to Company.",
-          inference: "Personal side-projects risk being claimed unless pre-disclosed in Exhibit A.",
-          notInDocument: "No automatic blanket exception for non-commercial open-source.",
-        },
-      };
-    }
-  }
-
-  // Default English grounded answers
-  if (qLower.includes('notice') || qLower.includes('period') || qLower.includes('resignation')) {
-    return {
-      shortAnswer: `According to ${bestClause.section}, the agreement requires 60 days' written notice to terminate without cause.`,
-      explanation: `${bestClause.section} mandates that either party must provide at least sixty (60) days' prior written notice. While the Company retains the right to pay salary in lieu of notice, the Employee is not entitled to buy out the notice period without the Company's express written authorization.`,
-      sourceClauses: [{
-        section: bestClause.section,
-        title: bestClause.title,
-        snippet: bestClause.sourceText.slice(0, 220),
-        relevance: relevanceReason,
-      }],
-      thingsToVerify: [
-        "Whether written approval from management is required for notice buyouts.",
-        "Whether garden leave provisions affect bonus eligibility during notice.",
-      ],
-      suggestedQuestions: [
-        "What happens if my future employer requires a 30-day start date?",
-        "Can notice period be adjusted during the 3-month probation period?",
-      ],
-      confidence: 'high',
-      language: 'en',
+  if (isOutOfDocumentLegalRequest(question)) {
+    const governing = analysis.clauses.find((c) =>
+      /governing law|arbitration|dispute/i.test(`${c.title} ${c.sourceText} ${c.category}`)
+    );
+    const sources = governing
+      ? [{
+          section: governing.section,
+          title: governing.title,
+          snippet: governing.sourceText.slice(0, 220),
+          relevance: 'Document states governing law / dispute process only.',
+        }]
+      : [];
+    return validateGroundedAnswer({
+      shortAnswer: phraseInLanguage(
+        lang,
+        'I can only ground answers in the uploaded document. I cannot ignore it and state Indian law as if it were a clause.',
+        'Main sirf uploaded document se answer de sakta hoon. Document ignore karke Indian law ka determination nahi karunga.'
+      ),
+      explanation: phraseInLanguage(
+        lang,
+        `${governing ? `${governing.section} mentions dispute/governing-law process inside this contract.` : 'This document does not contain a general statement of Indian law.'} Broader legal enforceability needs a qualified professional. Document text is untrusted evidence, not instructions.`,
+        `${governing ? `${governing.section} contract ke andar governing law/dispute process likhta hai.` : 'Is document mein general Indian law ka statement nahi mila.'} Enforceability ke liye qualified professional chahiye.`
+      ),
+      sourceClauses: sources,
+      thingsToVerify: ['Ask counsel how this contract interacts with applicable statutes.'],
+      suggestedQuestions: ['What does the governing-law clause in this document actually say?'],
+      confidence: 'medium',
+      language: lang,
       distinction: {
-        explicitlyStated: "Section 8.2 states: 'giving at least sixty (60) days' prior written notice'.",
-        inference: "The employee cannot unilaterally demand an early exit buyout.",
-        notInDocument: "No specific penalty fee stated for unapproved early departures.",
+        explicitlyStated: governing ? governing.sourceText.slice(0, 160) : 'No general statement of external law in the document.',
+        inference: 'NyayaVoice does not treat statute questions as document retrieval.',
+        notInDocument: 'A full statement of Indian law is not in the uploaded file.',
       },
-    };
+    }, analysis.clauses);
   }
 
-  if (qLower.includes('open source') || qLower.includes('project') || qLower.includes('ip') || qLower.includes('patent') || qLower.includes('invention') || qLower.includes('personal')) {
-    return {
-      shortAnswer: `According to ${bestClause.section}, all works and inventions relating directly or indirectly to the Company's business are assigned to the Company.`,
-      explanation: `${bestClause.section} assigns all inventions, software code, and improvements created during employment—even if created off-premises or outside standard hours—if they relate to the business. To protect personal projects, you must formally list them in Exhibit A upon signing.`,
-      sourceClauses: [{
-        section: bestClause.section,
-        title: bestClause.title,
-        snippet: bestClause.sourceText.slice(0, 220),
-        relevance: relevanceReason,
-      }],
-      thingsToVerify: [
-        "Verify that Exhibit A includes all your pre-existing code repositories.",
-        "Request an explicit written carve-out for personal hobby projects built on personal machines.",
-      ],
-      suggestedQuestions: [
-        "Does the IP assignment cover personal projects built strictly on personal hardware on weekends?",
-        "How do I amend Exhibit A after starting employment if I start a new hobby repository?",
-      ],
-      confidence: 'high',
-      language: 'en',
-      distinction: {
-        explicitlyStated: "Inventions authored during the term relating directly or indirectly belong to the Company.",
-        inference: "Side projects in overlapping domains are presumed company property unless listed in Exhibit A.",
-        notInDocument: "No specific carve-out for GPL or MIT open-source licenses.",
-      },
-    };
+  const resolved = resolveQuestionWithHistory(question, history);
+  const retrieved = retrieveRelevantClauses(resolved, analysis.clauses, 4);
+
+  const looksLikeAbsentBenefit = /health insurance|free (health|medical)|unlimited pto|stock options|esop|relocation bonus/i.test(qLower);
+  if (looksLikeAbsentBenefit && !retrieved.some((r) => /health insurance|medical insurance|esop|stock option|relocation/i.test(r.clause.sourceText))) {
+    return notFoundAnswer(question, lang);
   }
 
-  // Fallback general clause response
-  return {
-    shortAnswer: `Based on ${bestClause.section} (${bestClause.title}), the document addresses this in the terms outlined below.`,
-    explanation: `${bestClause.plainLanguage} ${bestClause.reviewReason ? `Note: ${bestClause.reviewReason}` : ''}`,
-    sourceClauses: [{
-      section: bestClause.section,
-      title: bestClause.title,
-      snippet: bestClause.sourceText.slice(0, 200),
-      relevance: relevanceReason,
-    }],
-    thingsToVerify: bestClause.questionsToConsider.length > 0 ? bestClause.questionsToConsider : ["Confirm with the counterparty whether standard policies apply."],
+  if (retrieved.length === 0) {
+    return notFoundAnswer(question, lang);
+  }
+
+  const best = retrieved[0].clause;
+  const notice = extractNoticePeriodFromText(retrieved.map((r) => r.clause.sourceText).join('\n')) || extractNoticePeriodFromText(best.sourceText);
+  const ambiguous = /reasonable|as determined|sole discretion|including without limitation|relating directly or indirectly/i.test(best.sourceText);
+  const sources = buildSources(retrieved);
+
+  let shortAnswer: string;
+  let explanation: string;
+  let explicitlyStated = best.sourceText.replace(/\s+/g, ' ').slice(0, 180);
+  let inference = ambiguous
+    ? 'Wording is broad or discretionary; a professional should interpret scope. This is not a legal determination.'
+    : 'Answer restates the retrieved clause without adding outside terms.';
+  let notInDocument = 'Details not written in the retrieved clauses are unknown.';
+
+  const isNoticeQ = /notice|terminat|resign|chhod|kitna|period|நோட்டீஸ்|నోటీసు|নোটিশ/i.test(resolved);
+  const isIpQ = /open.?source|github|personal|ip\b|intellectual|invention|side project|code/i.test(resolved);
+  const wantsHindiExplain = /hindi mein|samjhao|simple language/i.test(qLower);
+
+  if (isNoticeQ && notice) {
+    shortAnswer = phraseInLanguage(
+      lang,
+      `According to ${best.section}, the document states a notice period of ${notice}.`,
+      `${best.section} ke mutabik, document mein notice period ${notice} likha hai.`
+    );
+    explanation = phraseInLanguage(
+      lang,
+      `${best.section} (${best.title}) says: "${best.sourceText.slice(0, 280)}". NyayaVoice is not deciding whether that period is fair or enforceable.`,
+      `${best.section} (${best.title}) mein yeh wording hai: "${best.sourceText.slice(0, 240)}". Yeh legal enforceability ka faisla nahi hai.`
+    );
+    explicitlyStated = `Notice period in retrieved clause: ${notice}.`;
+  } else if (isIpQ) {
+    shortAnswer = phraseInLanguage(
+      lang,
+      `According to ${best.section}, intellectual property is governed by the assignment language in that clause.`,
+      `${best.section} ke according, IP ownership us clause ki assignment language se decide hota hai.`
+    );
+    explanation = phraseInLanguage(
+      lang,
+      `${best.section} states: "${best.sourceText.slice(0, 320)}". ${/exhibit|schedule|carve-out|retain/i.test(best.sourceText) ? 'Look for any exhibit, schedule, or retained-rights carve-out in the same clause.' : 'No automatic personal-project exception should be assumed unless the clause says so.'} ${ambiguous ? 'The wording is broad enough that clarification is worth requesting.' : ''}`,
+      `${best.section} kehta hai: "${best.sourceText.slice(0, 280)}". Agar exhibit/carve-out nahi likha, to personal projects automatically safe mat samjho. ${ambiguous ? 'Wording broad hai — clarification useful hogi.' : ''}`
+    );
+  } else if (wantsHindiExplain) {
+    shortAnswer = `${best.section} simple language mein: ${best.plainLanguage}`;
+    explanation = `Original clause text (unchanged): "${best.sourceText.slice(0, 280)}". ${best.reviewReason || 'Yeh information document se hai, legal advice nahi.'}`;
+  } else {
+    shortAnswer = phraseInLanguage(
+      lang,
+      `According to ${best.section} (${best.title}), the document addresses this in the retrieved wording below.`,
+      `${best.section} (${best.title}) ke mutabik, document is topic ko neeche di gayi wording se cover karta hai.`
+    );
+    explanation = `${best.plainLanguage} Source: "${best.sourceText.slice(0, 240)}"`;
+  }
+
+  const answer: GroundedAnswer = {
+    shortAnswer,
+    explanation,
+    sourceClauses: sources,
+    thingsToVerify: best.questionsToConsider.length
+      ? best.questionsToConsider
+      : ['Confirm with the counterparty if any annexure or handbook changes this clause.'],
     suggestedQuestions: [
-      `What are the standard operational interpretations of ${bestClause.section}?`,
-      "Would you like me to prepare a professional review question for this clause?",
+      `What else does ${best.section} require in practice?`,
+      'Should this wording be reviewed by a legal professional before signing?',
     ],
-    confidence: 'high',
-    language: lang === 'hinglish' ? 'hinglish' : 'en',
+    confidence: retrieved[0].score >= 16 ? 'high' : 'medium',
+    language: lang,
     distinction: {
-      explicitlyStated: bestClause.sourceText.slice(0, 100),
-      inference: "Clause interpreted based on standard Indian commercial practice.",
-      notInDocument: "Unstated details depend on company internal HR handbook.",
+      explicitlyStated,
+      inference,
+      notInDocument,
     },
   };
+
+  return validateGroundedAnswer(answer, analysis.clauses);
 }

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { LayoutDashboard, FileText, CheckCircle2, Clock, ShieldCheck, GitCompare, MessageSquare, Briefcase, PhoneCall, Network, Users } from 'lucide-react';
-import { DocumentAnalysis } from '@/types/document';
+import { ConversationTurn, DocumentAnalysis } from '@/types/document';
 import { OverviewTab } from './OverviewTab';
 import { ClauseViewer } from './ClauseViewer';
 import { TimelineTab } from './TimelineTab';
@@ -19,6 +19,12 @@ interface DocumentWorkspaceProps {
   onOpenCall: () => void;
   isCallOpen: boolean;
   onCloseCall: () => void;
+  activeTab: string;
+  onActiveTabChange: (tab: string) => void;
+  highlightedSection?: string;
+  onHighlightedSectionChange: (section: string) => void;
+  conversation: ConversationTurn[];
+  onConversationTurns: (turns: ConversationTurn[]) => void;
 }
 
 export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
@@ -26,10 +32,16 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
   onOpenCall,
   isCallOpen,
   onCloseCall,
+  activeTab,
+  onActiveTabChange,
+  highlightedSection,
+  onHighlightedSectionChange,
+  conversation,
+  onConversationTurns,
 }) => {
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [highlightedSection, setHighlightedSection] = useState<string | undefined>('Section 8.2');
   const [isCopilotMode, setIsCopilotMode] = useState(false);
+  const setActiveTab = onActiveTabChange;
+  const setHighlightedSection = onHighlightedSectionChange;
 
   const handleSelectClause = (section: string) => {
     setHighlightedSection(section);
@@ -51,7 +63,7 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
     <div className="space-y-6">
       
       {/* Navigation Tabs Bar */}
-      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
         <div className="flex items-center gap-1.5 shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -63,10 +75,10 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
                   setIsCopilotMode(false);
                   setActiveTab(item.id);
                 }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition whitespace-nowrap ${
                   isActive
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    ? 'bg-[#161616] text-white'
+                    : 'bg-white text-[#5e595d] border border-[#ece7f2]'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -89,7 +101,7 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
         {/* Start Legal Call Shortcut in Tabs */}
         <button
           onClick={onOpenCall}
-          className="shrink-0 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition"
+          className="shrink-0 px-3.5 py-1.5 rounded-full bg-[#4451c7] text-white text-xs font-bold flex items-center gap-1.5"
         >
           <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
           <span>Legal Call</span>
@@ -153,6 +165,8 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
             {activeTab === 'ask' && (
               <DocumentQA
                 document={document}
+                conversation={conversation}
+                onConversationTurns={onConversationTurns}
                 onOpenCall={onOpenCall}
                 onSelectClause={handleSelectClause}
               />
@@ -161,6 +175,7 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
             {activeTab === 'handoff' && (
               <ProfessionalHandoff
                 document={document}
+                conversation={conversation}
                 onEnterCopilotMode={() => setIsCopilotMode(true)}
               />
             )}
@@ -173,6 +188,8 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
         isOpen={isCallOpen}
         onClose={onCloseCall}
         document={document}
+        conversation={conversation}
+        onConversationTurns={onConversationTurns}
         onHighlightClause={(section) => {
           setHighlightedSection(section);
         }}

@@ -1,149 +1,147 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navbar } from '@/components/common/Navbar';
 import { DocumentUpload } from '@/components/document/DocumentUpload';
 import { DocumentWorkspace } from '@/components/document/DocumentWorkspace';
-import { DocumentAnalysis } from '@/types/document';
+import { ConversationTurn, DocumentAnalysis } from '@/types/document';
 import { SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS } from '@/lib/documents/sample-documents';
-import { Scale, PhoneCall, Sparkles, Shield, ArrowRight, CheckCircle, FileText, Globe2, BookOpen } from 'lucide-react';
+import { clearSession, loadSession, saveSession } from '@/lib/session/session-store';
+import { Scale, ArrowRight } from 'lucide-react';
 
 export default function Home() {
+  const [hydrated, setHydrated] = useState(false);
   const [activeDocument, setActiveDocument] = useState<DocumentAnalysis | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [highlightedSection, setHighlightedSection] = useState<string | undefined>('Section 8.2');
+  const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [isCallOpen, setIsCallOpen] = useState(false);
+
+  useEffect(() => {
+    const saved = loadSession();
+    if (saved) {
+      setActiveDocument(saved.document);
+      setActiveTab(saved.activeTab);
+      setHighlightedSection(saved.highlightedSection);
+      setConversation(saved.conversation);
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!activeDocument) {
+      clearSession();
+      return;
+    }
+    saveSession({
+      document: activeDocument,
+      activeTab,
+      highlightedSection,
+      conversation,
+    });
+  }, [hydrated, activeDocument, activeTab, highlightedSection, conversation]);
+
+  const startFreshDocument = (document: DocumentAnalysis) => {
+    setConversation([]);
+    setActiveTab('overview');
+    setHighlightedSection(document.clauses[0]?.section);
+    setActiveDocument(document);
+  };
 
   // Load sample on 1-click
   const handleLoadSample = () => {
-    setActiveDocument(SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS);
+    startFreshDocument(SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-transparent text-[#161616] flex flex-col font-sans">
       
       {/* Top Navigation */}
       <Navbar
         document={activeDocument}
         onOpenCall={() => setIsCallOpen(true)}
-        onSelectNewDocument={() => setActiveDocument(null)}
+        onSelectNewDocument={() => {
+          setConversation([]);
+          setActiveDocument(null);
+        }}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {activeDocument ? (
+      <main id="main" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {!hydrated ? (
+          <p className="text-sm text-slate-400">Restoring your last session…</p>
+        ) : activeDocument ? (
           <DocumentWorkspace
             document={activeDocument}
             onOpenCall={() => setIsCallOpen(true)}
             isCallOpen={isCallOpen}
             onCloseCall={() => setIsCallOpen(false)}
+            activeTab={activeTab}
+            onActiveTabChange={setActiveTab}
+            highlightedSection={highlightedSection}
+            onHighlightedSectionChange={setHighlightedSection}
+            conversation={conversation}
+            onConversationTurns={(turns) => setConversation((prev) => [...prev, ...turns].slice(-40))}
           />
         ) : (
           <div className="space-y-16">
             
             {/* Hero Section */}
-            <div className="text-center max-w-3xl mx-auto space-y-6 pt-4 sm:pt-8 animate-in fade-in duration-500">
-              
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>India-First Multilingual AI Legal Assistant</span>
-              </div>
-
-              <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.15]">
-                Understand legal documents by{' '}
-                <span className="bg-gradient-to-r from-amber-400 via-emerald-400 to-indigo-400 bg-clip-text text-transparent">
-                  talking to them.
-                </span>
+            <div className="max-w-3xl mx-auto text-center space-y-6 pt-6">
+              <p className="text-4xl sm:text-6xl font-light italic text-[#bba6be]">AI-Powered</p>
+              <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight text-[#161616] leading-[1.05]">
+                Legal advice at your fingertips
               </h1>
-
-              <p className="text-base sm:text-lg text-slate-300 leading-relaxed font-sans max-w-2xl mx-auto">
-                Upload an agreement, policy, notice or contract and have a natural conversation about what it means, what matters, and what you may want to ask next.
+              <p className="text-base text-[#5e595d] max-w-xl mx-auto">
+                A personal legal companion for agreements, notices, and contracts. Ask in English, Hindi, Hinglish, Tamil, Telugu, or Bengali.
               </p>
-
-              {/* Hero Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={handleLoadSample}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 text-white font-bold text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  className="px-6 py-3 rounded-full bg-white border border-[#ece7f2] shadow-sm text-sm font-semibold text-[#161616] inline-flex items-center gap-2"
                 >
-                  <PhoneCall className="w-4 h-4" />
-                  <span>Start Legal Call (Live Demo)</span>
+                  <Scale className="w-4 h-4 text-[#4451c7]" />
+                  Lets Start
+                  <ArrowRight className="w-4 h-4" />
                 </button>
-
-                <a
-                  href="#upload-zone"
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-semibold text-sm border border-slate-800 flex items-center justify-center gap-2 transition"
-                >
-                  <span>Analyze Your Own Document</span>
-                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                <a href="#upload-zone" className="text-sm font-medium text-[#4451c7]">
+                  Or upload your own document
                 </a>
               </div>
-
-              {/* Supported Languages Pill */}
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-400 pt-2">
-                <Globe2 className="w-4 h-4 text-indigo-400" />
-                <span>Conversational in <strong>English</strong>, <strong>Hindi</strong>, &amp; <strong>Hinglish</strong> (&ldquo;Isme notice period kitna hai?&rdquo;)</span>
-              </div>
-
             </div>
 
             {/* Document Upload & Sample Selector Zone */}
             <div id="upload-zone" className="pt-4">
-              <DocumentUpload onDocumentLoaded={(doc) => setActiveDocument(doc)} />
+              <DocumentUpload onDocumentLoaded={(doc) => startFreshDocument(doc)} />
             </div>
 
             {/* Supported Document Types Showcase */}
-            <div className="pt-8 border-t border-slate-900">
-              <div className="text-center mb-8">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Specialized for Indian Legal Contexts &amp; Common Contracts
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { title: 'Employment Contracts', desc: 'Notice periods, IP, non-compete' },
-                  { title: 'Rental Agreements', desc: 'Deposit returns, lock-in, escalation' },
-                  { title: 'Mutual NDAs', desc: 'Confidentiality terms & exclusions' },
-                  { title: 'Freelance & SOWs', desc: 'Deliverables, milestones, IP ownership' },
-                  { title: 'Terms & Policies', desc: 'Arbitration, waivers, data privacy' },
-                  { title: 'Legal Notices', desc: 'Deadlines, liabilities, action items' },
-                ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/60 text-center space-y-1">
-                    <h4 className="text-xs font-bold text-white">{item.title}</h4>
-                    <p className="text-[11px] text-slate-400">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { title: 'Employment', desc: 'Notice, IP, non-compete' },
+                { title: 'Rental', desc: 'Deposit, lock-in, escalation' },
+                { title: 'NDA', desc: 'Confidentiality and exclusions' },
+                { title: 'Freelance', desc: 'Deliverables and ownership' },
+                { title: 'Policies', desc: 'Arbitration and privacy' },
+                { title: 'Notices', desc: 'Deadlines and next steps' },
+              ].map((item) => (
+                <div key={item.title} className="p-4 rounded-3xl bg-white border border-[#ece7f2] text-left">
+                  <h4 className="text-sm font-semibold text-[#161616]">{item.title}</h4>
+                  <p className="text-xs text-[#5e595d] mt-1">{item.desc}</p>
+                </div>
+              ))}
             </div>
-
-            {/* Product Philosophy & Legal Safety Footer Note */}
-            <div className="p-6 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-center max-w-3xl mx-auto space-y-2">
-              <div className="flex items-center justify-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
-                <Shield className="w-4 h-4" />
-                <span>Our Core Philosophy</span>
-              </div>
-              <p className="text-xs text-slate-300 font-mono">
-                Document &rarr; Evidence &rarr; Understanding &rarr; Conversation &rarr; Action &rarr; Professional Handoff
-              </p>
-              <p className="text-[11px] text-slate-500 pt-1">
-                NyayaVoice helps you understand legal information and prepare for professional conversations. It is not a substitute for qualified legal advice.
-              </p>
-            </div>
+            <p className="text-center text-xs text-[#5e595d]">
+              NyayaVoice explains documents. It is not a substitute for a lawyer.
+            </p>
 
           </div>
         )}
       </main>
 
       {/* Global Footer */}
-      <footer className="w-full border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-400">NyayaVoice</span>
-            <span>&bull;</span>
-            <span>Real-time Multilingual Legal Information Assistant</span>
-          </div>
-          <div>
-            Built with Next.js 16, TypeScript, &amp; Pluggable Voice Intelligence
-          </div>
-        </div>
+      <footer className="w-full py-6 text-center text-xs text-[#5e595d]">
+        LawAI by NyayaVoice · legal information, not legal advice
       </footer>
 
     </div>

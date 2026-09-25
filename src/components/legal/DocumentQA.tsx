@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { Send, Sparkles, Bookmark, CheckCircle, HelpCircle, PhoneCall, Globe, AlertCircle } from 'lucide-react';
-import { DocumentAnalysis, GroundedAnswer } from '@/types/document';
+import { ConversationTurn, DocumentAnalysis, GroundedAnswer } from '@/types/document';
 
 interface DocumentQAProps {
   document: DocumentAnalysis;
+  conversation?: ConversationTurn[];
+  onConversationTurns?: (turns: ConversationTurn[]) => void;
   onOpenCall: () => void;
   onSelectClause: (section: string) => void;
 }
@@ -20,6 +22,8 @@ interface ChatMessage {
 
 export const DocumentQA: React.FC<DocumentQAProps> = ({
   document,
+  conversation = [],
+  onConversationTurns,
   onOpenCall,
   onSelectClause,
 }) => {
@@ -27,7 +31,7 @@ export const DocumentQA: React.FC<DocumentQAProps> = ({
     {
       id: 'msg_welcome',
       sender: 'ai',
-      text: `Namaste. I have analyzed your ${document.documentType}. Ask me anything about notice periods, intellectual property, compensation, or obligations in English, Hindi, or Hinglish.`,
+      text: `Namaste. I have analyzed your ${document.documentType}. Ask in English, Hindi, Hinglish, Tamil, Telugu, or Bengali. Answers stay tied to clauses in this document.`,
       timestamp: 'Just now',
     },
   ]);
@@ -58,12 +62,22 @@ export const DocumentQA: React.FC<DocumentQAProps> = ({
         body: JSON.stringify({
           question: userQ,
           analysis: document,
+          history: conversation,
         }),
       });
 
       const data = await res.json();
       if (data.success && data.answer) {
         const answer: GroundedAnswer = data.answer;
+        onConversationTurns?.([
+          { id: `qa_u_${Date.now()}`, role: 'user', text: userQ },
+          {
+            id: `qa_a_${Date.now()}`,
+            role: 'assistant',
+            text: answer.shortAnswer,
+            section: answer.sourceClauses[0]?.section,
+          },
+        ]);
         setMessages(prev => [
           ...prev,
           {
@@ -229,7 +243,7 @@ export const DocumentQA: React.FC<DocumentQAProps> = ({
           type="text"
           value={inputQuestion}
           onChange={(e) => setInputQuestion(e.target.value)}
-          placeholder="Ask in English, Hindi, or Hinglish (e.g., 'Isme termination clause kya kehta hai?')..."
+          placeholder="Ask in English, Hindi, Hinglish, Tamil, Telugu, or Bengali..."
           className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
         />
         <button

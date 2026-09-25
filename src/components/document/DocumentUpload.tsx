@@ -139,7 +139,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-950/70 px-4 py-1.5 rounded-full border border-slate-800">
+          <div className="flex items-center gap-2 text-[11px] text-[#5e595d] bg-[#f6f4fb] px-4 py-1.5 rounded-full border border-[#ece7f2]">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Files processed securely &amp; sanitized client-side</span>
           </div>

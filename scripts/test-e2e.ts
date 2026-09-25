@@ -2,14 +2,23 @@
 import { SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS, SAMPLE_DOCUMENTS } from '../src/lib/documents/sample-documents';
 import { analyzeDocumentHeuristically, answerDocumentQuestionHeuristically } from '../src/lib/ai/heuristic-analyzer';
 
+import { buildHandoffPdf } from '../src/lib/handoff/handoff-pdf';
+import { buildProfessionalHandoff, formatDossierText } from '../src/lib/handoff/build-handoff';
+
+function check(condition: unknown, message: string) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
 console.log('=== RUNNING NYAYAVOICE E2E VERIFICATION SUITE ===\n');
 
 // 1. Verify Sample Document Analysis Data
 console.log('1. Verifying Sample Employment Agreement Structure...');
 const sample = SAMPLE_EMPLOYMENT_AGREEMENT_ANALYSIS;
-console.assert(sample.clauses.length >= 14, `Expected at least 14 clauses, got ${sample.clauses.length}`);
-console.assert(sample.userObligations.length >= 7, `Expected at least 7 user obligations, got ${sample.userObligations.length}`);
-console.assert(sample.importantDates.length >= 3, `Expected at least 3 important dates, got ${sample.importantDates.length}`);
+check(sample.clauses.length >= 14, `Expected at least 14 clauses, got ${sample.clauses.length}`);
+check(sample.userObligations.length >= 7, `Expected at least 7 user obligations, got ${sample.userObligations.length}`);
+check(sample.importantDates.length >= 3, `Expected at least 3 important dates, got ${sample.importantDates.length}`);
 console.log(`✓ Sample Document verified (${sample.clauses.length} clauses, ${sample.userObligations.length} obligations, ${sample.importantDates.length} dates)`);
 
 // 2. Test Grounded Q&A in English (Open source IP question)
@@ -20,8 +29,8 @@ const answerEnglish = answerDocumentQuestionHeuristically(
 );
 console.log('Short Answer:', answerEnglish.shortAnswer);
 console.log('Grounding Section:', answerEnglish.sourceClauses[0]?.section);
-console.assert(answerEnglish.sourceClauses[0]?.section.includes('7'), 'Expected citation to Section 7');
-console.assert(answerEnglish.confidence === 'high', 'Expected high confidence');
+check(answerEnglish.sourceClauses[0]?.section.includes('7'), `Expected citation to Section 7, got ${answerEnglish.sourceClauses[0]?.section}`);
+check(answerEnglish.confidence === 'high', 'Expected high confidence');
 console.log('✓ English grounded answer verified with Section 7.1 citation');
 
 // 3. Test Grounded Q&A in Hinglish (Notice period question)
@@ -33,17 +42,28 @@ const answerHinglish = answerDocumentQuestionHeuristically(
 console.log('Short Answer:', answerHinglish.shortAnswer);
 console.log('Grounding Section:', answerHinglish.sourceClauses[0]?.section);
 console.log('Language Detected:', answerHinglish.language);
-console.assert(answerHinglish.sourceClauses[0]?.section.includes('8'), 'Expected citation to Section 8');
-console.assert(answerHinglish.language === 'hinglish', 'Expected hinglish detection');
+check(answerHinglish.sourceClauses[0]?.section.includes('8'), `Expected citation to Section 8, got ${answerHinglish.sourceClauses[0]?.section}`);
+check(answerHinglish.language === 'hinglish', 'Expected hinglish detection');
 console.log('✓ Hinglish grounded answer verified with Section 8.2 citation (60 days)');
 
 // 4. Test Heuristic Document Parser on Raw Text
 console.log('\n4. Testing Raw Text Extraction & Parsing...');
 const rawSample = SAMPLE_DOCUMENTS[0].rawText;
 const parsedDoc = analyzeDocumentHeuristically(rawSample, 'Employment_Agreement.txt');
-console.assert(parsedDoc.documentType === 'Employment Agreement', `Expected Employment Agreement, got ${parsedDoc.documentType}`);
-console.assert(parsedDoc.clauses.length > 5, `Expected parsed clauses > 5, got ${parsedDoc.clauses.length}`);
-console.assert(parsedDoc.userObligations.length > 0, `Expected user obligations, got ${parsedDoc.userObligations.length}`);
+check(parsedDoc.documentType === 'Employment Agreement', `Expected Employment Agreement, got ${parsedDoc.documentType}`);
+check(parsedDoc.clauses.length > 5, `Expected parsed clauses > 5, got ${parsedDoc.clauses.length}`);
+check(parsedDoc.userObligations.length > 0, `Expected user obligations, got ${parsedDoc.userObligations.length}`);
+
+const tamil = answerDocumentQuestionHeuristically('நோட்டீஸ் காலம் எவ்வளவு?', sample);
+check(tamil.language === 'ta', `Expected Tamil detection, got ${tamil.language}`);
+check(tamil.sourceClauses[0]?.section.includes('8'), `Expected Tamil notice citation, got ${tamil.sourceClauses[0]?.section}`);
+console.log('✓ Tamil notice question cites', tamil.sourceClauses[0]?.section);
+
+const dossier = formatDossierText(buildProfessionalHandoff(sample, []));
+const pdf = buildHandoffPdf(dossier);
+check(new TextDecoder().decode(pdf.slice(0, 8)) === '%PDF-1.4', 'Expected a PDF file header');
+check(dossier.includes('not legal advice'), 'Expected the legal-information disclaimer in the dossier');
+console.log('✓ Handoff dossier and PDF header verified');
 console.log(`✓ Raw text parser correctly extracted document structure (${parsedDoc.clauses.length} clauses, ${parsedDoc.userObligations.length} obligations)`);
 
 console.log('\n=== ALL E2E VERIFICATION CHECKS PASSED SUCCESSFULLY! ===\n');

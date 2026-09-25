@@ -1,71 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Briefcase, Copy, Check, Printer, FileText, HelpCircle, AlertCircle, ArrowRight } from 'lucide-react';
-import { DocumentAnalysis, ProfessionalHandoff as HandoffType } from '@/types/document';
+import React, { useMemo, useState } from 'react';
+import { Briefcase, Copy, Check, Printer, Download, AlertCircle, ArrowRight } from 'lucide-react';
+import { ConversationTurn, DocumentAnalysis } from '@/types/document';
+import { buildProfessionalHandoff, formatDossierText } from '@/lib/handoff/build-handoff';
+import { downloadHandoffPdf } from '@/lib/handoff/handoff-pdf';
 
 interface ProfessionalHandoffProps {
   document: DocumentAnalysis;
+  conversation?: ConversationTurn[];
   onEnterCopilotMode?: () => void;
 }
 
 export const ProfessionalHandoff: React.FC<ProfessionalHandoffProps> = ({
   document,
+  conversation = [],
   onEnterCopilotMode,
 }) => {
   const [copied, setCopied] = useState(false);
-
-  // Generate initial handoff dossier
-  const handoffData: HandoffType = {
-    documentTitle: document.title,
-    documentType: document.documentType,
-    userRole: document.parties[1]?.role || 'Employee / Contractor',
-    userObjective: 'Clarify intellectual property assignment regarding personal open-source software, notice period buyout feasibility, and enforceability of post-employment non-compete covenenats.',
-    discussedTopics: [
-      'Section 7.1 — Intellectual property scope over personal projects',
-      'Section 8.2 — 60-day notice period requirement and buyout asymmetry',
-      'Section 10.1 — 6-month post-employment non-compete restraint',
-      'Section 2.2 — Discretionary performance bonus measurement criteria',
-    ],
-    needsProfessionalReview: [
-      'Scope of Section 7.1 and formal drafting of Exhibit A carve-outs for personal GitHub repositories',
-      'Mutual buyout provision for 60-day notice period',
-      'Enforceability under Section 27 of the Indian Contract Act for the 6-month non-compete',
-    ],
-    relevantClauses: [
-      { section: 'Section 7.1', title: 'Intellectual Property Assignment', reason: 'Broad language relates to works authored directly or indirectly to the business.' },
-      { section: 'Section 8.2 & 8.3', title: 'Termination Without Cause & Notice Period', reason: 'Unilateral company buyout option with no employee right.' },
-      { section: 'Section 10.1', title: 'Restrictive Covenants (Non-Compete)', reason: 'Post-employment restriction across India.' },
-      { section: 'Section 2.2', title: 'Performance Bonus', reason: 'Strictly discretionary bonus terms.' },
-    ],
-    questionsForLawyer: document.questionsForProfessional.map(q => q.question),
-    generatedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-  };
-
-  const formattedDossierText = `
-NYAYAVOICE — PROFESSIONAL CONSULTATION HANDOFF DOSSIER
-Generated: ${handoffData.generatedAt}
-Notice: Prepared by NyayaVoice for consultation preparation assistance (not legal advice).
-
-DOCUMENT: ${handoffData.documentTitle}
-TYPE: ${handoffData.documentType}
-CLIENT ROLE: ${handoffData.userRole}
-
-CLIENT OBJECTIVE:
-${handoffData.userObjective}
-
-TOPICS DISCUSSED & ANALYZED:
-${handoffData.discussedTopics.map(t => `• ${t}`).join('\n')}
-
-ITEMS IDENTIFIED REQUIRING PROFESSIONAL LEGAL REVIEW:
-${handoffData.needsProfessionalReview.map(r => `• ${r}`).join('\n')}
-
-KEY SUPPORTING CLAUSES:
-${handoffData.relevantClauses.map(c => `• ${c.section} (${c.title}): ${c.reason}`).join('\n')}
-
-RECOMMENDED QUESTIONS FOR COUNSEL:
-${handoffData.questionsForLawyer.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
-`.trim();
+  const handoffData = useMemo(
+    () => buildProfessionalHandoff(document, conversation),
+    [document, conversation]
+  );
+  const formattedDossierText = useMemo(() => formatDossierText(handoffData), [handoffData]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(formattedDossierText);
@@ -109,7 +66,15 @@ ${handoffData.questionsForLawyer.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
             className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-2 transition"
           >
             <Printer className="w-4 h-4" />
-            <span>Print / PDF</span>
+            <span>Print</span>
+          </button>
+
+          <button
+            onClick={() => downloadHandoffPdf(formattedDossierText, 'nyayavoice-handoff.pdf')}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download PDF</span>
           </button>
 
           {onEnterCopilotMode && (
