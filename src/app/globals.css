@@ -110,3 +110,27 @@ html.lawai .bg-\[\#161616\],
 html.lawai .bg-\[\#4451c7\] {
   color: #ffffff !important;
 }
+
+html.lawai :focus-visible {
+  outline: 3px solid #4451c7;
+  outline-offset: 3px;
+}
+
+html.lawai .text-indigo-300,
+html.lawai .text-indigo-400,
+html.lawai .text-amber-300,
+html.lawai .text-amber-400,
+html.lawai .text-emerald-300,
+html.lawai .text-emerald-400 {
+  color: #3b3f9a !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.lawai *,
+  html.lawai *::before,
+  html.lawai *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

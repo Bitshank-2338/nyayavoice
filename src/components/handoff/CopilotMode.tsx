@@ -115,7 +115,7 @@ export const CopilotMode: React.FC<CopilotModeProps> = ({
             <div className="space-y-2">
               {document.questionsForProfessional.map((q, idx) => (
                 <div key={idx} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
-                  <input type="checkbox" className="mt-0.5 rounded border-slate-700 text-violet-600 focus:ring-0" />
+                  <input type="checkbox" aria-label={q.question} className="mt-0.5 rounded border-slate-700 text-violet-600 focus:ring-0" />
                   <div>
                     <span className="font-semibold text-white">{q.question}</span>
                     <span className="ml-2 font-mono text-amber-300 text-[10px]">[{q.relevantSection}]</span>

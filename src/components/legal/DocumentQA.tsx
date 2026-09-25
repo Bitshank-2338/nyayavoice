@@ -239,7 +239,9 @@ export const DocumentQA: React.FC<DocumentQAProps> = ({
 
       {/* Input Form */}
       <form onSubmit={handleSubmit} className="p-4 bg-slate-950 border-t border-slate-800 flex items-center gap-3">
+        <label htmlFor="nyaya-question" className="sr-only">Ask a question about this document</label>
         <input
+          id="nyaya-question"
           type="text"
           value={inputQuestion}
           onChange={(e) => setInputQuestion(e.target.value)}
@@ -248,6 +250,7 @@ export const DocumentQA: React.FC<DocumentQAProps> = ({
         />
         <button
           type="submit"
+          aria-label="Send question"
           disabled={!inputQuestion.trim() || loading}
           className="p-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl transition shadow-lg shadow-indigo-600/20"
         >

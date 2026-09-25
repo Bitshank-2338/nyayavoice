@@ -63,14 +63,17 @@ export const DocumentWorkspace: React.FC<DocumentWorkspaceProps> = ({
     <div className="space-y-6">
       
       {/* Navigation Tabs Bar */}
-      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
-        <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2" role="navigation" aria-label="Document sections">
+        <div className="flex items-center gap-1.5 shrink-0" role="tablist" aria-label="Workspace sections">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id && !isCopilotMode;
             return (
               <button
                 key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => {
                   setIsCopilotMode(false);
                   setActiveTab(item.id);

@@ -250,13 +250,18 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="legal-call-title"
+        className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden"
+      >
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-800 bg-slate-900/90">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-white tracking-wide text-sm">NYAYAVOICE LEGAL CALL</span>
+                <span id="legal-call-title" className="font-semibold text-white tracking-wide text-sm">NYAYAVOICE LEGAL CALL</span>
                 <span className="px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hidden sm:inline">
                   Live Grounded Call
                 </span>
@@ -275,7 +280,7 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
                 onClose();
               }}
               className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition"
-              title="Close Call"
+              aria-label="Close call"
             >
               <PhoneOff className="w-5 h-5 text-rose-400" />
             </button>
@@ -310,6 +315,7 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
             <label className="w-full mb-4 text-[11px] text-slate-400 flex items-center justify-between gap-2">
               <span>Listening language</span>
               <select
+                aria-label="Listening language"
                 value={listenLanguage}
                 onChange={(e) => {
                   const next = e.target.value as SpokenLanguage;
@@ -332,7 +338,8 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
                     ? 'bg-rose-500/20 border-rose-500 text-rose-400 shadow-lg shadow-rose-500/20'
                     : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white'
                 }`}
-                title={isMuted ? 'Unmute' : 'Mute'}
+                aria-pressed={isMuted}
+                aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
               >
                 {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
@@ -345,7 +352,7 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
                     ? 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/50 text-amber-300 cursor-pointer animate-pulse'
                     : 'bg-slate-800/50 border-slate-700 text-slate-500 cursor-not-allowed'
                 }`}
-                title="Interrupt NyayaVoice"
+                aria-label="Interrupt NyayaVoice"
               >
                 <Hand className="w-4 h-4" />
                 Interrupt
@@ -395,6 +402,7 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
               <div className="relative flex-1">
                 <Keyboard className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
+                  aria-label="Type a question if the microphone is unavailable"
                   value={typedQuestion}
                   onChange={(e) => setTypedQuestion(e.target.value)}
                   placeholder="Type if mic is unavailable..."
@@ -440,7 +448,7 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
                   Language: {LANGUAGE_LABELS[languageDetected]}
                 </span>
               </div>
-              <p className="text-sm text-slate-200 min-h-[2.5rem] break-words">
+              <p className="text-sm text-slate-200 min-h-[2.5rem] break-words" aria-live="polite">
                 {userTranscript || <span className="text-slate-500 italic">Listening or waiting for typed input...</span>}
               </p>
             </div>
@@ -462,7 +470,7 @@ export const LegalCallModal: React.FC<LegalCallModalProps> = ({
                   NYAYAVOICE TRANSCRIPT
                 </span>
               </div>
-              <p className="text-sm text-slate-100 leading-relaxed min-h-[3.5rem] break-words">
+              <p className="text-sm text-slate-100 leading-relaxed min-h-[3.5rem] break-words" aria-live="polite">
                 {aiTranscript || <span className="text-slate-500 italic">Waiting for prompt...</span>}
               </p>
             </div>

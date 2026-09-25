@@ -18,9 +18,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectNewDocument,
 }) => {
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#ece7f2] bg-white/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 w-full border-b border-[#ece7f2] bg-white/80 backdrop-blur-xl" role="banner">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <button type="button" className="flex items-center gap-3" onClick={onSelectNewDocument}>
+        <button type="button" className="flex items-center gap-3" onClick={onSelectNewDocument} aria-label="LawAI home, NyayaVoice">
           <span className="w-10 h-10 rounded-2xl bg-[#161616] text-white flex items-center justify-center">
             <Scale className="w-5 h-5" />
           </span>

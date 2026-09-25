@@ -78,6 +78,7 @@ export const ContractComparison: React.FC<ContractComparisonProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">Compare Against:</span>
           <select
+            aria-label="Document to compare against"
             value={selectedDocBId}
             onChange={(e) => setSelectedDocBId(e.target.value)}
             className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"

@@ -60,6 +60,7 @@ export const ClauseViewer: React.FC<ClauseViewerProps> = ({
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            aria-label="Search clauses by title, section, or topic"
             placeholder="Search by clause title, section (e.g. 8.2), or topic..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

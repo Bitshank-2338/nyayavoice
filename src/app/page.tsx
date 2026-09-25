@@ -88,7 +88,7 @@ export default function Home() {
             
             {/* Hero Section */}
             <div className="max-w-3xl mx-auto text-center space-y-6 pt-6">
-              <p className="text-4xl sm:text-6xl font-light italic text-[#bba6be]">AI-Powered</p>
+              <p className="text-4xl sm:text-6xl font-light italic text-[#6b4c78]">AI-Powered</p>
               <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight text-[#161616] leading-[1.05]">
                 Legal advice at your fingertips
               </h1>
@@ -97,6 +97,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
+                  type="button"
                   onClick={handleLoadSample}
                   className="px-6 py-3 rounded-full bg-white border border-[#ece7f2] shadow-sm text-sm font-semibold text-[#161616] inline-flex items-center gap-2"
                 >
@@ -141,7 +142,7 @@ export default function Home() {
 
       {/* Global Footer */}
       <footer className="w-full py-6 text-center text-xs text-[#5e595d]">
-        LawAI by NyayaVoice · legal information, not legal advice
+        LawAI by NyayaVoice · legal information, not legal advice. Use Tab to move and Enter to activate. A skip link is the first control on the page.
       </footer>
 
     </div>

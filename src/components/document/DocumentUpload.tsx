@@ -109,7 +109,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
       
       {/* Error Banner */}
       {errorMsg && (
-        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-3">
+        <div role="alert" className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -122,6 +122,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
           accept=".pdf,.txt,.md"
           onChange={handleFileUpload}
           disabled={loading}
+          aria-label="Upload a PDF or text legal document"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
         />
 

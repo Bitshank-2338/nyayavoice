@@ -35,6 +35,18 @@ Antigravity, or any Cloud Run deploy, can build this `Dockerfile` and set:
 
 Do not commit `.env.local`. The repository must stay public, on one branch, and under 10 MB.
 
+## Accessibility
+
+The interface is built for keyboard and screen-reader use, not only for a mouse.
+
+- The first control is a “Skip to content” link. Tab moves through controls. Enter activates them.
+- The header is a banner. The workspace sections are tabs with `aria-selected`. The legal call is a dialog.
+- File upload, clause search, questions, language choice, and comparison all have visible or screen-reader labels.
+- Icon-only buttons have accessible names. Call transcripts use live regions.
+- Text contrast stays at least WCAG AA on the light LawAI background. Focus is a visible indigo outline.
+- Motion from pulses and transitions is removed when the user prefers reduced motion.
+- Answers can be read on screen if speech recognition or spoken playback is unavailable.
+
 ## Assumptions
 
 - Sample contracts are fictional and safe to demo.
